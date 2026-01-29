@@ -68,6 +68,60 @@ function getCategoryColor(name) {
     return g_categoryColorMap[name];
 }
 
+const CATEGORY_EMOJI_MAP = {
+    'casa': '🏠',
+    'moradia': '🏠',
+    'comida': '🍔',
+    'alimentaçao': '🍔',
+    'alimentação': '🍔',
+    'restaurantes': '🍕',
+    'supermercado': '🛒',
+    'transporte': '🚗',
+    'carro': '🚗',
+    'combustivel': '⛽',
+    'combustível': '⛽',
+    'lazer': '🍿',
+    'viagens': '✈️',
+    'saude': '🏥',
+    'saúde': '🏥',
+    'farmacia': '💊',
+    'farmácia': '💊',
+    'educaçao': '📚',
+    'educação': '📚',
+    'compras': '🛍️',
+    'shopping': '🛍️',
+    'investimentos': '📈',
+    'depositos': '💰',
+    'depósitos': '💰',
+    'salario': '💵',
+    'salário': '💵',
+    'telecomunicaçoes': '📱',
+    'telecomunicações': '📱',
+    'internet': '🌐',
+    'telemovel': '📱',
+    'telemóvel': '📱',
+    'ginasio': '🏋️',
+    'ginásio': '🏋️',
+    'desporto': '⚽',
+    'presentes': '🎁',
+    'animais': '🐾',
+    'pet': '🐾',
+    'seguros': '🛡️',
+    'impostos': '📑',
+    'serviços': '🛠️',
+    'serviços': '🛠️',
+    'uncategorized': '❓',
+    'default': '💰'
+};
+
+function getCategoryEmoji(name) {
+    const key = name.toLowerCase().trim();
+    for (const [pattern, emoji] of Object.entries(CATEGORY_EMOJI_MAP)) {
+        if (key.includes(pattern)) return emoji;
+    }
+    return '💰';
+}
+
 // Register DataLabels plugin for all charts
 Chart.register(ChartDataLabels);
 
@@ -353,13 +407,14 @@ function renderCategoryBars(categories, totalIncome, totalExpenses, totalInvestm
         if (catLower === 'depositos' || catLower === 'investimentos') return;
 
         const color = getCategoryColor(name);
+        const emoji = getCategoryEmoji(name);
         const percentage = totalExpenses > 0 ? (value / totalExpenses) * 100 : 0;
 
         const barItem = document.createElement('div');
         barItem.className = 'bar-item';
         barItem.innerHTML = `
             <div class="bar-info">
-                <span class="bar-label">${name}</span>
+                <span class="bar-label">${emoji} ${name}</span>
                 <span class="bar-value">€${value.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} (${percentage.toFixed(1)}%)</span>
             </div>
             <div class="bar-bg">
@@ -521,6 +576,7 @@ function renderInsights() {
         const card = document.createElement('div');
         card.className = 'insight-card';
 
+        const emoji = getCategoryEmoji(cat);
         let subHtml = '';
         const subs = Object.entries(groups[cat]).sort((a, b) => b[1] - a[1]);
         subs.forEach(([subName, subVal]) => {
@@ -543,7 +599,7 @@ function renderInsights() {
 
         card.innerHTML = `
             <div class="insight-header">
-                <h4>${cat}</h4>
+                <h4>${emoji} ${cat}</h4>
             </div>
             <div class="subcategory-list">
                 ${subHtml}
@@ -613,7 +669,9 @@ function updateCategoryChart(groups) {
                         size: 11
                     },
                     formatter: (value, ctx) => {
-                        return ctx.chart.data.labels[ctx.dataIndex];
+                        const label = ctx.chart.data.labels[ctx.dataIndex];
+                        const emoji = getCategoryEmoji(label);
+                        return `${emoji} ${label}`;
                     },
                     display: (context) => {
                         const dataset = context.dataset;
