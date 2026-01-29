@@ -12,6 +12,7 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 </head>
 
 <body>
@@ -79,24 +80,6 @@
                         <!-- Bars will be injected here -->
                     </div>
                 </div>
-
-                <div class="history-toggle-container">
-                    <button id="toggle-history-btn" class="secondary-btn">
-                        📦 Show Transaction History
-                    </button>
-                </div>
-
-                <div id="history-section" class="hidden">
-                    <div class="dashboard-header">
-                        <h3>Detailed History</h3>
-                        <div class="search-bar">
-                            <input type="text" id="sheet-search" placeholder="Search transactions...">
-                        </div>
-                    </div>
-                    <div id="data-container" class="data-grid">
-                        <!-- Transactions injected here -->
-                    </div>
-                </div>
             </section>
 
             <!-- Insights View -->
@@ -119,6 +102,20 @@
                     </div>
                     <div id="insights-grid" class="insights-grid">
                         <!-- Category cards injected here -->
+                    </div>
+                </div>
+
+                <!-- Moved Transactions to Insights -->
+                <div class="history-toggle-container">
+                    <button id="toggle-history-btn" class="nav-btn">📦 Show Transactions</button>
+                    <div class="search-box">
+                        <input type="text" id="sheet-search" placeholder="Search transactions...">
+                    </div>
+                </div>
+
+                <div id="history-section" class="history-section hidden">
+                    <div id="data-container">
+                        <!-- History will be injected here -->
                     </div>
                 </div>
             </section>

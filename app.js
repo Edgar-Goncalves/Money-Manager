@@ -42,6 +42,35 @@ let g_selectedMonth = 'All'; // 'All' or 0-11
 // Chart Instances
 let g_categoryChartInst = null;
 
+// Persistent Color Map
+const CATEGORY_PALETTE = [
+    '#6366f1', // Indigo
+    '#f43f5e', // Rose
+    '#10b981', // Emerald
+    '#f59e0b', // Amber
+    '#8b5cf6', // Violet
+    '#06b6d4', // Cyan
+    '#ec4899', // Pink
+    '#3b82f6', // Blue
+    '#f97316', // Orange
+    '#84cc16', // Lime
+    '#0ea5e9', // Sky
+    '#d946ef'  // Fuchsia
+];
+let g_categoryColorMap = {};
+let g_paletteIndex = 0;
+
+function getCategoryColor(name) {
+    if (!g_categoryColorMap[name]) {
+        g_categoryColorMap[name] = CATEGORY_PALETTE[g_paletteIndex % CATEGORY_PALETTE.length];
+        g_paletteIndex++;
+    }
+    return g_categoryColorMap[name];
+}
+
+// Register DataLabels plugin for all charts
+Chart.register(ChartDataLabels);
+
 // Initial check
 window.addEventListener('DOMContentLoaded', () => {
     if (!WEB_APP_URL) {
@@ -322,7 +351,10 @@ function renderCategoryBars(categories, totalIncome, totalExpenses, totalInvestm
     categories.forEach(([name, value]) => {
         const catLower = name.toLowerCase();
         if (catLower === 'depositos' || catLower === 'investimentos') return;
+
+        const color = getCategoryColor(name);
         const percentage = totalExpenses > 0 ? (value / totalExpenses) * 100 : 0;
+
         const barItem = document.createElement('div');
         barItem.className = 'bar-item';
         barItem.innerHTML = `
@@ -331,7 +363,7 @@ function renderCategoryBars(categories, totalIncome, totalExpenses, totalInvestm
                 <span class="bar-value">€${value.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} (${percentage.toFixed(1)}%)</span>
             </div>
             <div class="bar-bg">
-                <div class="bar-fill bar-fill-expense" style="width: ${percentage}%"></div>
+                <div class="bar-fill" style="width: ${percentage}%; background-color: ${color};"></div>
             </div>
         `;
         categoryBarsContainer.appendChild(barItem);
@@ -521,6 +553,22 @@ function renderInsights() {
         insightsGrid.appendChild(card);
     });
 
+    // Update History if visible to match month filter
+    if (g_showHistory) {
+        const filteredData = data.filter(row => {
+            const dateStr = row[0] ? row[0].toString().trim() : '';
+            if (!dateStr) return g_selectedMonth === 'All';
+            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+            let m = -1;
+            if (parts.length >= 3) {
+                if (parts[2].length === 4) m = parseInt(parts[1]) - 1;
+                else if (parts[0].length === 4) m = parseInt(parts[1]) - 1;
+            }
+            return g_selectedMonth === 'All' || m === g_selectedMonth;
+        });
+        renderTransactionList(filteredData);
+    }
+
     updateCategoryChart(groups);
 }
 
@@ -530,6 +578,7 @@ function updateCategoryChart(groups) {
 
     const labels = Object.keys(groups);
     const data = labels.map(cat => Object.values(groups[cat]).reduce((a, b) => a + b, 0));
+    const backgroundColors = labels.map(getCategoryColor);
 
     if (g_categoryChartInst) g_categoryChartInst.destroy();
 
@@ -539,9 +588,7 @@ function updateCategoryChart(groups) {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: [
-                    '#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#3b82f6', '#f97316', '#84cc16', '#0ea5e9', '#d946ef'
-                ],
+                backgroundColor: backgroundColors,
                 borderWidth: 0,
                 hoverOffset: 20
             }]
@@ -556,6 +603,23 @@ function updateCategoryChart(groups) {
                         color: '#94a3b8',
                         font: { family: 'Outfit', size: 11 },
                         padding: 20
+                    }
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: {
+                        family: 'Outfit',
+                        weight: 'bold',
+                        size: 11
+                    },
+                    formatter: (value, ctx) => {
+                        return ctx.chart.data.labels[ctx.dataIndex];
+                    },
+                    display: (context) => {
+                        const dataset = context.dataset;
+                        const value = dataset.data[context.dataIndex];
+                        const total = dataset.data.reduce((a, b) => a + b, 0);
+                        return (value / total) > 0.05; // Show only if > 5%
                     }
                 },
                 tooltip: {
