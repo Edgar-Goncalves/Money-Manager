@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Manager | Premium Finance Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">Money<span>Manager</span></div>
+            <nav class="main-nav">
+                <button id="nav-dashboard" class="nav-btn active">Dashboard</button>
+                <button id="nav-insights" class="nav-btn">Insights</button>
+            </nav>
+            <button id="refresh-btn" class="icon-btn" title="Refresh Data">
+                🔄
+            </button>
+        </header>
+
+        <main id="main-content">
+            <!-- Setup View (Only shows if no URL is saved) -->
+            <section id="setup-view" class="view hidden">
+                <div class="glass-card">
+                    <h1>Private Access</h1>
+                    <p>Enter your secret Web App URL to unlock your data.</p>
+                    <div class="search-bar" style="margin-bottom: 1.5rem;">
+                        <input type="password" id="script-url-input"
+                            placeholder="https://script.google.com/macros/s/...">
+                    </div>
+                    <button id="save-url-btn" class="primary-btn">Unlock Dashboard</button>
+                    <p style="font-size: 0.7rem; margin-top: 1rem; opacity: 0.6;">This is saved only on this device.</p>
+                </div>
+            </section>
+
+            <!-- Dashboard View -->
+            <section id="dashboard-view" class="view hidden">
+                <nav id="year-nav" class="year-tabs">
+                    <!-- Year tabs will be injected here -->
+                </nav>
+
+                <div class="recap-section">
+                    <div class="glass-card recap-card">
+                        <span class="recap-label" id="current-year-label">Net Savings</span>
+                        <h2 id="total-year">€0.00</h2>
+                        <div id="savings-rate" class="savings-rate">0% Saved</div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box income">
+                            <h4>Total Income</h4>
+                            <p id="total-income">€0.00</p>
+                            <div class="growth-container" id="growth-income"></div>
+                        </div>
+                        <div class="stat-box expense">
+                            <h4>Total Expenses</h4>
+                            <p id="total-expenses">€0.00</p>
+                            <div class="growth-container" id="growth-expenses"></div>
+                        </div>
+                        <div class="stat-box investment">
+                            <h4>Total Investments</h4>
+                            <p id="total-investments">€0.00</p>
+                            <div class="growth-container" id="growth-investments"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="category-breakdown">
+                    <h3>Expenses Breakdown</h3>
+                    <div id="category-bars" class="bars-container">
+                        <!-- Bars will be injected here -->
+                    </div>
+                </div>
+
+                <div class="history-toggle-container">
+                    <button id="toggle-history-btn" class="secondary-btn">
+                        📦 Show Transaction History
+                    </button>
+                </div>
+
+                <div id="history-section" class="hidden">
+                    <div class="dashboard-header">
+                        <h3>Detailed History</h3>
+                        <div class="search-bar">
+                            <input type="text" id="sheet-search" placeholder="Search transactions...">
+                        </div>
+                    </div>
+                    <div id="data-container" class="data-grid">
+                        <!-- Transactions injected here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Insights View -->
+            <section id="insights-view" class="view hidden">
+                <nav id="insights-year-nav" class="year-tabs">
+                    <!-- Year tabs will be injected here -->
+                </nav>
+                <nav id="insights-month-nav" class="month-tabs">
+                    <!-- Month tabs will be injected here -->
+                </nav>
+
+                <div class="chart-container insights-chart">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+
+                <div class="insights-container">
+                    <div class="dashboard-header">
+                        <h3>Detailed Breakdown</h3>
+                        <p class="text-dim">Subcategory analysis and biggest single spends.</p>
+                    </div>
+                    <div id="insights-grid" class="insights-grid">
+                        <!-- Category cards injected here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div id="reset-container">
+                <button id="reset-btn" class="text-btn">Reset Website</button>
+            </div>
+            <p id="last-updated">Last updated: Never</p>
+        </footer>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
