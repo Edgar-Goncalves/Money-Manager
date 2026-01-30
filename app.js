@@ -1,692 +1,464 @@
-let WEB_APP_URL = localStorage.getItem('sheet_url');
+/**
+ * Money Manager - SOLID Refactor
+ * Modular, class-based architecture for better maintainability.
+ */
 
-const setupView = document.getElementById('setup-view');
-const dashboardView = document.getElementById('dashboard-view');
-const urlInput = document.getElementById('script-url-input');
-const saveUrlBtn = document.getElementById('save-url-btn');
-const dataContainer = document.getElementById('data-container');
-const searchInput = document.getElementById('sheet-search');
-const refreshBtn = document.getElementById('refresh-btn');
-const lastUpdatedLabel = document.getElementById('last-updated');
-const resetBtn = document.getElementById('reset-btn');
-
-// Dashboard UI elements
-const yearNav = document.getElementById('year-nav');
-const totalYearLabel = document.getElementById('total-year');
-const totalIncomeLabel = document.getElementById('total-income');
-const totalExpensesLabel = document.getElementById('total-expenses');
-const totalInvestmentsLabel = document.getElementById('total-investments');
-const totalEntriesLabel = document.getElementById('total-entries');
-const categoryBarsContainer = document.getElementById('category-bars');
-const toggleHistoryBtn = document.getElementById('toggle-history-btn');
-const historySection = document.getElementById('history-section');
-
-// Navigation elements
-const navDashboard = document.getElementById('nav-dashboard');
-const navInsights = document.getElementById('nav-insights');
-const insightsView = document.getElementById('insights-view');
-const insightsGrid = document.getElementById('insights-grid');
-const insightsYearNav = document.getElementById('insights-year-nav');
-const insightsMonthNav = document.getElementById('insights-month-nav');
-
-// Application State
-let g_allData = null;
-let g_yearlyData = {};
-let g_selectedYear = null;
-let g_showHistory = false;
-let g_monthlyIncomeMap = {};
-let g_currentHistoryRows = [];
-let g_currentPage = 'dashboard'; // 'dashboard' or 'insights'
-let g_selectedMonth = 'All'; // 'All' or 0-11
-
-// Chart Instances
-let g_categoryChartInst = null;
-
-// Persistent Color Map
-const CATEGORY_PALETTE = [
-    '#6366f1', // Indigo
-    '#f43f5e', // Rose
-    '#10b981', // Emerald
-    '#f59e0b', // Amber
-    '#8b5cf6', // Violet
-    '#06b6d4', // Cyan
-    '#ec4899', // Pink
-    '#3b82f6', // Blue
-    '#f97316', // Orange
-    '#84cc16', // Lime
-    '#0ea5e9', // Sky
-    '#d946ef'  // Fuchsia
-];
-let g_categoryColorMap = {};
-let g_paletteIndex = 0;
-
-function getCategoryColor(name) {
-    if (!g_categoryColorMap[name]) {
-        g_categoryColorMap[name] = CATEGORY_PALETTE[g_paletteIndex % CATEGORY_PALETTE.length];
-        g_paletteIndex++;
+// --- 1. CONFIGURATION ---
+const Config = {
+    STORAGE_KEY: 'sheet_url',
+    CACHE_KEY: 'money_manager_cache',
+    PALETTE: [
+        '#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', 
+        '#06b6d4', '#ec4899', '#3b82f6', '#f97316', '#84cc16', 
+        '#0ea5e9', '#d946ef'
+    ],
+    EMOJIS: {
+        'casa': '🏠', 'moradia': '🏠', 'comida': '🍔', 'alimentaçao': '🍔', 'alimentação': '🍔',
+        'restaurantes': '🍕', 'supermercado': '🛒', 'transporte': '🚗', 'carro': '🚗',
+        'combustivel': '⛽', 'combustível': '⛽', 'lazer': '🍿', 'viagens': '✈️',
+        'saude': '🏥', 'saúde': '🏥', 'farmacia': '💊', 'farmácia': '💊',
+        'educaçao': '📚', 'educação': '📚', 'compras': '🛍️', 'shopping': '🛍️',
+        'investimentos': '📈', 'depositos': '💰', 'depósitos': '💰', 'salario': '💵',
+        'salário': '💵', 'telecomunicaçoes': '📱', 'telecomunicações': '📱',
+        'internet': '🌐', 'telemovel': '📱', 'telemóvel': '📱', 'ginasio': '🏋️',
+        'ginásio': '🏋️', 'desporto': '⚽', 'presentes': '🎁', 'animais': '🐾',
+        'pet': '🐾', 'seguros': '🛡️', 'impostos': '📑', 'serviços': '🛠️',
+        'uncategorized': '❓', 'default': '💰'
     }
-    return g_categoryColorMap[name];
-}
-
-const CATEGORY_EMOJI_MAP = {
-    'casa': '🏠',
-    'moradia': '🏠',
-    'comida': '🍔',
-    'alimentaçao': '🍔',
-    'alimentação': '🍔',
-    'restaurantes': '🍕',
-    'supermercado': '🛒',
-    'transporte': '🚗',
-    'carro': '🚗',
-    'combustivel': '⛽',
-    'combustível': '⛽',
-    'lazer': '🍿',
-    'viagens': '✈️',
-    'saude': '🏥',
-    'saúde': '🏥',
-    'farmacia': '💊',
-    'farmácia': '💊',
-    'educaçao': '📚',
-    'educação': '📚',
-    'compras': '🛍️',
-    'shopping': '🛍️',
-    'investimentos': '📈',
-    'depositos': '💰',
-    'depósitos': '💰',
-    'salario': '💵',
-    'salário': '💵',
-    'telecomunicaçoes': '📱',
-    'telecomunicações': '📱',
-    'internet': '🌐',
-    'telemovel': '📱',
-    'telemóvel': '📱',
-    'ginasio': '🏋️',
-    'ginásio': '🏋️',
-    'desporto': '⚽',
-    'presentes': '🎁',
-    'animais': '🐾',
-    'pet': '🐾',
-    'seguros': '🛡️',
-    'impostos': '📑',
-    'serviços': '🛠️',
-    'serviços': '🛠️',
-    'uncategorized': '❓',
-    'default': '💰'
 };
 
-function getCategoryEmoji(name) {
-    const key = name.toLowerCase().trim();
-    for (const [pattern, emoji] of Object.entries(CATEGORY_EMOJI_MAP)) {
-        if (key.includes(pattern)) return emoji;
+// --- 2. UTILS ---
+class Utils {
+    static formatCurrency(val) {
+        return `€${val.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
     }
-    return '💰';
-}
 
-// Register DataLabels plugin for all charts
-Chart.register(ChartDataLabels);
-
-// Initial check
-window.addEventListener('DOMContentLoaded', () => {
-    if (!WEB_APP_URL) {
-        showView('setup');
-    } else {
-        showPage('dashboard');
-        loadCachedData();
+    static parseValue(valStr) {
+        if (!valStr) return 0;
+        let s = valStr.toString().replace(/[€\s]/g, '').replace(',', '.').replace('-', '');
+        return parseFloat(s) || 0;
     }
-});
 
-// Save URL Handler
-saveUrlBtn.addEventListener('click', () => {
-    const url = urlInput.value.trim();
-    if (url.startsWith('https://script.google.com')) {
-        localStorage.setItem('sheet_url', url);
-        WEB_APP_URL = url;
-        showView('dashboard');
-        fetchData();
-    } else {
-        alert('Please enter a valid Google Apps Script URL');
-    }
-});
-
-resetBtn.addEventListener('click', () => {
-    if (confirm("Reset everything? You will need to paste your secret URL again.")) {
-        localStorage.clear();
-        location.reload();
-    }
-});
-
-toggleHistoryBtn.addEventListener('click', () => {
-    g_showHistory = !g_showHistory;
-    renderHistoryToggle();
-});
-
-navDashboard.addEventListener('click', () => showPage('dashboard'));
-navInsights.addEventListener('click', () => showPage('insights'));
-
-function showView(view) {
-    setupView.classList.add('hidden');
-    dashboardView.classList.add('hidden');
-    insightsView.classList.add('hidden');
-
-    if (view === 'setup') {
-        setupView.classList.remove('hidden');
-    } else if (view === 'dashboard' || view === 'insights') {
-        showPage(view);
-    }
-}
-
-function showPage(page) {
-    g_currentPage = page;
-
-    setupView.classList.add('hidden');
-    dashboardView.classList.add('hidden');
-    insightsView.classList.add('hidden');
-
-    navDashboard.classList.remove('active');
-    navInsights.classList.remove('active');
-
-    if (page === 'dashboard') {
-        dashboardView.classList.remove('hidden');
-        navDashboard.classList.add('active');
-        renderRecap();
-    } else if (page === 'insights') {
-        insightsView.classList.remove('hidden');
-        navInsights.classList.add('active');
-        renderMonthNav();
-        renderInsights();
-    }
-}
-
-function loadCachedData() {
-    const cachedData = localStorage.getItem('sheet_data');
-    const lastUpdate = localStorage.getItem('sheet_last_update');
-    if (cachedData) {
-        g_allData = JSON.parse(cachedData);
-        processData(g_allData);
-        lastUpdatedLabel.innerText = `Last updated: ${lastUpdate}`;
-    } else {
-        fetchData();
-    }
-}
-
-refreshBtn.addEventListener('click', () => {
-    refreshBtn.classList.add('spinning');
-    fetchData();
-});
-
-async function fetchData() {
-    try {
-        const response = await fetch(WEB_APP_URL);
-        if (!response.ok) throw new Error('Could not connect to sheet');
-        const data = await response.json();
-        if (typeof data === 'string' && data.startsWith('ERROR')) {
-            throw new Error(data);
-        }
-        const now = new Date().toLocaleString();
-        localStorage.setItem('sheet_data', JSON.stringify(data));
-        localStorage.setItem('sheet_last_update', now);
-        g_allData = data;
-        processData(data);
-        lastUpdatedLabel.innerText = `Last updated: ${now}`;
-    } catch (error) {
-        console.error(error);
-        dataContainer.innerHTML = `<div class="loader error">⚠️ ${error.message}</div>`;
-    } finally {
-        refreshBtn.classList.remove('spinning');
-    }
-}
-
-function processData(rows) {
-    if (!rows || rows.length < 2) {
-        dataContainer.innerHTML = '<div class="loader">No data found in your sheet.</div>';
-        return;
-    }
-    g_yearlyData = {};
-    const rawData = rows.slice(1);
-    rawData.forEach(row => {
-        const dateStr = row[0] ? row[0].toString().trim() : '';
-        if (!dateStr) return;
+    static parseMonth(dateStr) {
+        if (!dateStr) return -1;
         const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-        if (parts.length < 3) return;
-        let year;
-        if (parts[2].length === 4) year = parts[2];
-        else if (parts[0].length === 4) year = parts[0];
-        if (year) {
-            if (!g_yearlyData[year]) g_yearlyData[year] = [];
-            g_yearlyData[year].push(row);
+        if (parts.length < 3) return -1;
+        // Handle DD/MM/YYYY or YYYY-MM-DD
+        return (parts[2].length === 4) ? parseInt(parts[1]) - 1 : parseInt(parts[1]) - 1;
+    }
+
+    static getCategoryEmoji(name) {
+        const key = name.toLowerCase().trim();
+        for (const [pattern, emoji] of Object.entries(Config.EMOJIS)) {
+            if (key.includes(pattern)) return emoji;
         }
-    });
-    renderYearNav();
-    const availableYears = Object.keys(g_yearlyData).sort((a, b) => b - a);
-    if (availableYears.length > 0) {
-        selectYear(availableYears[0]);
+        return Config.EMOJIS.default;
     }
 }
 
-function renderYearNav() {
-    const years = Object.keys(g_yearlyData).sort((a, b) => b - a);
-
-    const updateNav = (container) => {
-        if (!container) return;
-        container.innerHTML = '';
-        years.forEach(year => {
-            const tab = document.createElement('div');
-            tab.className = `year-tab ${year === g_selectedYear ? 'active' : ''}`;
-            tab.innerText = year;
-            tab.onclick = () => selectYear(year);
-            container.appendChild(tab);
-        });
-    };
-
-    updateNav(yearNav);
-    updateNav(insightsYearNav);
-}
-
-function renderMonthNav() {
-    if (!insightsMonthNav) return;
-    insightsMonthNav.innerHTML = '';
-
-    const months = ['All', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    months.forEach((month, index) => {
-        const val = index === 0 ? 'All' : index - 1;
-        const tab = document.createElement('div');
-        tab.className = `month-tab ${g_selectedMonth === val ? 'active' : ''}`;
-        tab.innerText = month;
-        tab.onclick = () => selectMonth(val);
-        insightsMonthNav.appendChild(tab);
-    });
-}
-
-function selectMonth(month) {
-    g_selectedMonth = month;
-    renderMonthNav();
-    renderInsights();
-}
-
-function selectYear(year) {
-    g_selectedYear = year;
-    renderYearNav();
-    if (g_currentPage === 'dashboard') {
-        renderRecap();
-        renderHistoryToggle();
-    } else {
-        renderInsights();
-    }
-}
-
-function renderRecap() {
-    const data = g_yearlyData[g_selectedYear] || [];
-    let curTotalIncome = 0;
-    let curTotalExpenses = 0;
-    let curTotalInvestments = 0;
-    const categoryMap = {};
-    const monthlyIncomeMap = {};
-
-    data.forEach(row => {
-        const dateStr = row[0] ? row[0].toString().trim() : '';
-        let month = 0;
-        if (dateStr) {
-            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-            if (parts.length >= 3) {
-                if (parts[2].length === 4) month = parseInt(parts[1]) - 1;
-                else if (parts[0].length === 4) month = parseInt(parts[1]) - 1;
-            }
-        }
-        let valStr = row[3] ? row[3].toString() : '0';
-        valStr = valStr.replace(/[€\s]/g, '').replace(',', '.').replace('-', '');
-        const val = parseFloat(valStr) || 0;
-        const cat = (row[1] || 'Uncategorized').toString().trim();
-        const catLower = cat.toLowerCase();
-        if (catLower === 'depositos') {
-            curTotalIncome += val;
-            monthlyIncomeMap[month] = (monthlyIncomeMap[month] || 0) + val;
-        } else if (catLower === 'investimentos') {
-            curTotalInvestments += val;
-        } else {
-            curTotalExpenses += val;
-        }
-        categoryMap[cat] = (categoryMap[cat] || 0) + val;
-    });
-
-    const curNetSavings = curTotalIncome - curTotalExpenses;
-    const savingsRate = curTotalIncome > 0 ? (curNetSavings / curTotalIncome) * 100 : 0;
-
-    totalYearLabel.innerText = `€${curNetSavings.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
-    document.getElementById('savings-rate').innerText = `${savingsRate.toFixed(1)}% Saved`;
-    totalIncomeLabel.innerText = `€${curTotalIncome.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
-    totalExpensesLabel.innerText = `€${curTotalExpenses.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
-    totalInvestmentsLabel.innerText = `€${curTotalInvestments.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
-
-    const prevYear = (parseInt(g_selectedYear) - 1).toString();
-    const prevData = g_yearlyData[prevYear];
-    const setGrowth = (id, current, previous, reverseColor = false) => {
-        const container = document.getElementById(id);
-        if (!container) return;
-        container.innerHTML = '';
-        if (!previous || previous === 0) return;
-        const diff = ((current - previous) / previous) * 100;
-        const isPos = diff >= 0;
-        const isGood = reverseColor ? !isPos : isPos;
-        container.innerHTML = `<span class="growth-badge ${isGood ? 'growth-positive' : 'growth-negative'}">
-            ${isPos ? '↑' : '↓'} ${Math.abs(diff).toFixed(1)}% vs ${prevYear}
-        </span>`;
-    };
-
-    if (prevData) {
-        let prevIncome = 0, prevExpenses = 0, prevInvestments = 0;
-        prevData.forEach(row => {
-            let valStr = row[3] ? row[3].toString() : '0';
-            valStr = valStr.replace(/[€\s]/g, '').replace(',', '.').replace('-', '');
-            const val = parseFloat(valStr) || 0;
-            const cat = (row[1] || '').toString().trim().toLowerCase();
-            if (cat === 'depositos') prevIncome += val;
-            else if (cat === 'investimentos') prevInvestments += val;
-            else prevExpenses += val;
-        });
-        setGrowth('growth-income', curTotalIncome, prevIncome);
-        setGrowth('growth-expenses', curTotalExpenses, prevExpenses, true);
-        setGrowth('growth-investments', curTotalInvestments, prevInvestments);
-    } else {
-        ['growth-income', 'growth-expenses', 'growth-investments'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = '';
-        });
+// --- 3. API SERVICE ---
+class ApiService {
+    constructor(url) {
+        this.url = url;
     }
 
-    const sortedCategories = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
-    renderCategoryBars(sortedCategories, curTotalIncome, curTotalExpenses, curTotalInvestments);
-
-    g_monthlyIncomeMap = monthlyIncomeMap;
-}
-
-function renderCategoryBars(categories, totalIncome, totalExpenses, totalInvestments) {
-    categoryBarsContainer.innerHTML = '';
-    categories.forEach(([name, value]) => {
-        const catLower = name.toLowerCase();
-        if (catLower === 'depositos' || catLower === 'investimentos') return;
-
-        const color = getCategoryColor(name);
-        const emoji = getCategoryEmoji(name);
-        const percentage = totalExpenses > 0 ? (value / totalExpenses) * 100 : 0;
-
-        const barItem = document.createElement('div');
-        barItem.className = 'bar-item';
-        barItem.innerHTML = `
-            <div class="bar-info">
-                <span class="bar-label">${emoji} ${name}</span>
-                <span class="bar-value">€${value.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} (${percentage.toFixed(1)}%)</span>
-            </div>
-            <div class="bar-bg">
-                <div class="bar-fill" style="width: ${percentage}%; background-color: ${color};"></div>
-            </div>
-        `;
-        categoryBarsContainer.appendChild(barItem);
-    });
-}
-
-function renderHistoryToggle() {
-    if (g_showHistory) {
-        toggleHistoryBtn.innerText = "📁 Hide Transactions";
-        historySection.classList.remove('hidden');
-        renderTransactionList(g_yearlyData[g_selectedYear] || []);
-    } else {
-        toggleHistoryBtn.innerText = `📦 Show ${g_selectedYear} Transactions`;
-        historySection.classList.add('hidden');
-    }
-}
-
-function renderTransactionList(rows) {
-    g_currentHistoryRows = rows;
-    renderHistoryInner(rows);
-}
-
-function renderHistoryInner(dataToRender) {
-    dataContainer.innerHTML = '';
-    if (dataToRender.length === 0) {
-        dataContainer.innerHTML = '<div class="loader">No transactions found.</div>';
-        return;
-    }
-    dataToRender.forEach((row, index) => {
+    async fetchData() {
         try {
+            const resp = await fetch(this.url);
+            const data = await resp.json();
+            if (data.status === 'success') return data.data;
+            throw new Error('API Error');
+        } catch (e) {
+            console.error('Fetch failed:', e);
+            return null;
+        }
+    }
+}
+
+// --- 4. STATE MANAGER ---
+class StateManager {
+    constructor() {
+        this.allData = null;
+        this.yearlyData = {};
+        this.monthlyIncomeMap = {};
+        this.selectedYear = null;
+        this.selectedMonth = 'All';
+        this.showHistory = false;
+        this.colorMap = {};
+        this.paletteIndex = 0;
+        this.listeners = [];
+    }
+
+    subscribe(callback) {
+        this.listeners.push(callback);
+    }
+
+    notify() {
+        this.listeners.forEach(cb => cb(this));
+    }
+
+    setData(data) {
+        this.allData = data;
+        this.processYearlyData();
+        if (!this.selectedYear && Object.keys(this.yearlyData).length > 0) {
+            this.selectedYear = Object.keys(this.yearlyData).sort((a,b) => b-a)[0];
+        }
+        this.notify();
+    }
+
+    processYearlyData() {
+        this.yearlyData = {};
+        this.allData.forEach(row => {
+            const dateStr = row[0] ? row[0].toString().trim() : '';
+            if (!dateStr) return;
+            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+            const year = parts.length >= 3 ? (parts[2].length === 4 ? parts[2] : parts[0]) : null;
+            if (year) {
+                if (!this.yearlyData[year]) this.yearlyData[year] = [];
+                this.yearlyData[year].push(row);
+            }
+        });
+    }
+
+    setYear(year) {
+        this.selectedYear = year;
+        this.selectedMonth = 'All';
+        this.notify();
+    }
+
+    setMonth(month) {
+        this.selectedMonth = month;
+        this.notify();
+    }
+
+    toggleHistory() {
+        this.showHistory = !this.showHistory;
+        this.notify();
+    }
+
+    getCategoryColor(name) {
+        if (!this.colorMap[name]) {
+            this.colorMap[name] = Config.PALETTE[this.paletteIndex % Config.PALETTE.length];
+            this.paletteIndex++;
+        }
+        return this.colorMap[name];
+    }
+
+    getCurrentYearData() {
+        return this.yearlyData[this.selectedYear] || [];
+    }
+
+    getFilteredData() {
+        const data = this.getCurrentYearData();
+        if (this.selectedMonth === 'All') return data;
+        return data.filter(row => Utils.parseMonth(row[0]) === this.selectedMonth);
+    }
+}
+
+// --- 5. CHART MANAGER ---
+class ChartManager {
+    constructor(canvasId) {
+        this.canvasId = canvasId;
+        this.instance = null;
+        Chart.register(ChartDataLabels);
+    }
+
+    update(labels, values, colors) {
+        const ctx = document.getElementById(this.canvasId);
+        if (!ctx) return;
+        if (this.instance) this.instance.destroy();
+
+        this.instance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                    hoverOffset: 20
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Outfit', size: 11 }, padding: 20 } },
+                    datalabels: {
+                        color: '#fff',
+                        font: { family: 'Outfit', weight: 'bold', size: 11 },
+                        formatter: (val, ctx) => {
+                            const label = ctx.chart.data.labels[ctx.dataIndex];
+                            return `${Utils.getCategoryEmoji(label)} ${label}`;
+                        },
+                        display: (ctx) => (ctx.dataset.data[ctx.dataIndex] / ctx.dataset.data.reduce((a,b)=>a+b,0)) > 0.05
+                    },
+                    tooltip: { callbacks: { label: (ctx) => Utils.formatCurrency(ctx.parsed) } }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+}
+
+// --- 6. UI RENDERER ---
+class UIRenderer {
+    constructor(state) {
+        this.state = state;
+        this.chartManager = new ChartManager('categoryChart');
+    }
+
+    render() {
+        this.renderNavs();
+        this.renderDashboard();
+        this.renderInsights();
+    }
+
+    renderNavs() {
+        const yearNav = document.getElementById('year-nav');
+        const insightsYearNav = document.getElementById('insights-year-nav');
+        const insightsMonthNav = document.getElementById('insights-month-nav');
+        
+        const years = Object.keys(this.state.yearlyData).sort((a,b) => b-a);
+        
+        [yearNav, insightsYearNav].forEach(nav => {
+            if (!nav) return;
+            nav.innerHTML = '';
+            years.forEach(yr => {
+                const btn = document.createElement('button');
+                btn.className = `year-tab ${this.state.selectedYear === yr ? 'active' : ''}`;
+                btn.innerText = yr;
+                btn.onclick = () => app.handleYearSelect(yr);
+                nav.appendChild(btn);
+            });
+        });
+
+        if (insightsMonthNav) {
+            insightsMonthNav.innerHTML = '';
+            ['All', ...Array.from({length: 12}, (_, i) => i)].forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = `month-tab ${this.state.selectedMonth === m ? 'active' : ''}`;
+                btn.innerText = m === 'All' ? 'All Months' : new Date(2000, m).toLocaleString('default', { month: 'short' });
+                btn.onclick = () => app.handleMonthSelect(m);
+                insightsMonthNav.appendChild(btn);
+            });
+        }
+    }
+
+    renderDashboard() {
+        const data = this.state.getCurrentYearData();
+        let totalIncome = 0, totalExpenses = 0, totalInvestments = 0;
+        const catMap = {};
+
+        data.forEach(row => {
+            const cat = (row[1] || '').toString().trim();
+            const val = Utils.parseValue(row[3]);
+            if (cat.toLowerCase() === 'depositos') totalIncome += val;
+            else if (cat.toLowerCase() === 'investimentos') totalInvestments += val;
+            else {
+                totalExpenses += val;
+                catMap[cat] = (catMap[cat] || 0) + val;
+            }
+        });
+
+        document.getElementById('total-year').innerText = Utils.formatCurrency(totalIncome - totalExpenses);
+        document.getElementById('total-income').innerText = Utils.formatCurrency(totalIncome);
+        document.getElementById('total-expenses').innerText = Utils.formatCurrency(totalExpenses);
+        document.getElementById('total-investments').innerText = Utils.formatCurrency(totalInvestments);
+        document.getElementById('savings-rate').innerText = `${totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(1) : 0}% Saved`;
+
+        this.renderGrowth(totalIncome, totalExpenses, totalInvestments);
+        this.renderBars(catMap, totalExpenses);
+    }
+
+    renderGrowth(curInc, curExp, curInv) {
+        const prevYear = (parseInt(this.state.selectedYear) - 1).toString();
+        const prevData = this.state.yearlyData[prevYear];
+        const setBadge = (id, cur, prev, rev = false) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = '';
+            if (!prev) return;
+            const diff = ((cur - prev) / prev) * 100;
+            const isGood = rev ? diff <= 0 : diff >= 0;
+            el.innerHTML = `<span class="growth-badge ${isGood ? 'growth-positive' : 'growth-negative'}">
+                ${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff).toFixed(1)}% vs ${prevYear}
+            </span>`;
+        };
+
+        if (prevData) {
+            let pInc = 0, pExp = 0, pInv = 0;
+            prevData.forEach(row => {
+                const c = (row[1] || '').toLowerCase();
+                const v = Utils.parseValue(row[3]);
+                if (c === 'depositos') pInc += v;
+                else if (c === 'investimentos') pInv += v;
+                else pExp += v;
+            });
+            setBadge('growth-income', curInc, pInc);
+            setBadge('growth-expenses', curExp, pExp, true);
+            setBadge('growth-investments', curInv, pInv);
+        }
+    }
+
+    renderBars(catMap, totalExp) {
+        const container = document.getElementById('category-bars');
+        if (!container) return;
+        container.innerHTML = '';
+        Object.entries(catMap).sort((a,b) => b[1]-a[1]).forEach(([name, val]) => {
+            const perc = totalExp > 0 ? (val / totalExp * 100) : 0;
+            const item = document.createElement('div');
+            item.className = 'bar-item';
+            item.innerHTML = `
+                <div class="bar-info">
+                    <span class="bar-label">${Utils.getCategoryEmoji(name)} ${name}</span>
+                    <span class="bar-value">${Utils.formatCurrency(val)} (${perc.toFixed(1)}%)</span>
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" style="width:${perc}%; background:${this.state.getCategoryColor(name)}"></div>
+                </div>`;
+            container.appendChild(item);
+        });
+    }
+
+    renderInsights() {
+        const data = this.state.getFilteredData();
+        const grid = document.getElementById('insights-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const groups = {}, biggest = {};
+        data.forEach(row => {
+            const cat = (row[1] || 'Other').trim();
+            const sub = (row[2] || 'Default').trim();
+            const name = (row[4] || 'Expense').trim();
+            const val = Utils.parseValue(row[3]);
+            if (cat.toLowerCase() === 'depositos' || cat.toLowerCase() === 'investimentos') return;
+
+            if (!groups[cat]) groups[cat] = {};
+            groups[cat][sub] = (groups[cat][sub] || 0) + val;
+            if (!biggest[cat] || val > biggest[cat].value) biggest[cat] = { name, value: val };
+        });
+
+        Object.entries(groups).forEach(([cat, subs]) => {
+            const card = document.createElement('div');
+            card.className = 'insight-card';
+            let subHtml = Object.entries(subs).sort((a,b)=>b[1]-a[1]).map(([n, v]) => `
+                <div class="subcategory-item"><span class="subcategory-name">${n}</span><span class="subcategory-value">${Utils.formatCurrency(v)}</span></div>
+            `).join('');
+            
+            card.innerHTML = `
+                <div class="insight-header"><h4>${Utils.getCategoryEmoji(cat)} ${cat}</h4></div>
+                <div class="subcategory-list">${subHtml}</div>
+                ${biggest[cat] ? `<div class="biggest-expense"><span class="biggest-expense-label">Biggest Spend</span><span class="biggest-expense-name">${biggest[cat].name}</span><span class="biggest-expense-value">${Utils.formatCurrency(biggest[cat].value)}</span></div>` : ''}
+            `;
+            grid.appendChild(card);
+        });
+
+        const labels = Object.keys(groups);
+        const values = labels.map(c => Object.values(groups[c]).reduce((a,b)=>a+b, 0));
+        const colors = labels.map(c => this.state.getCategoryColor(c));
+        this.chartManager.update(labels, values, colors);
+        this.renderHistory(data);
+    }
+
+    renderHistory(data) {
+        const btn = document.getElementById('toggle-history-btn');
+        const section = document.getElementById('history-section');
+        const container = document.getElementById('data-container');
+        if (!btn || !section || !container) return;
+
+        if (!this.state.showHistory) {
+            btn.innerText = `📦 Show ${this.state.selectedMonth === 'All' ? 'Year' : 'Month'} Transactions`;
+            section.classList.add('hidden');
+            return;
+        }
+
+        btn.innerText = "📁 Hide Transactions";
+        section.classList.remove('hidden');
+        container.innerHTML = data.length ? '' : '<div class="loader">No transactions.</div>';
+        data.forEach((row, i) => {
             const card = document.createElement('div');
             card.className = 'data-card';
-            const title = row[4] || `Entry ${index + 1}`;
-            const cat = (row[1] || '').toString().trim().toLowerCase();
-            const isIncome = cat === 'depositos';
-            const isInvestment = cat === 'investimentos';
-            const dateStr = row[0] ? row[0].toString().trim() : '';
-            const displayDate = dateStr.split(' ')[0].split('T')[0];
-            let month = 0;
-            if (dateStr) {
-                const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-                if (parts.length >= 3) {
-                    if (parts[2].length === 4) month = parseInt(parts[1]) - 1;
-                    else if (parts[0].length === 4) month = parseInt(parts[1]) - 1;
-                }
-            }
-            let valueColor = 'white';
-            if (isIncome) valueColor = 'var(--income-color)';
-            if (isInvestment) valueColor = 'var(--investment-color)';
-            let workHoursHtml = '';
-            const rawVal = row[3] ? row[3].toString() : '0';
-            const value = parseFloat(rawVal.replace(/[€\s]/g, '').replace(',', '.').replace('-', '')) || 0;
-
-            if (!isIncome) {
-                const monthlyIncome = g_monthlyIncomeMap[month] || 0;
-                const hoursPerMonth = 190.67;
-                if (monthlyIncome > 0) {
-                    const hourlyRate = monthlyIncome / hoursPerMonth;
-                    const hoursNeeded = (value / hourlyRate).toFixed(1);
-                    workHoursHtml = `<div class="work-hours-badge" style="margin:0;">⌛ ${hoursNeeded}h work</div>`;
-                }
-            }
-
+            const cat = (row[1]||'').toLowerCase();
             card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem;">
-                    <h3 style="margin: 0; font-size: 1rem;">${title}</h3>
-                    <span style="font-size: 0.75rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${displayDate}</span>
-                </div>
-                <div class="data-item">
-                    <span class="data-label">Categoria</span>
-                    <span class="data-value">${row[1] || '-'}</span>
-                </div>
-                <div class="data-item">
-                    <span class="data-label">Sub-Categoria</span>
-                    <span class="data-value">${row[2] || '-'}</span>
-                </div>
-                <div class="data-item" style="border-top: 1px solid var(--glass-border); margin-top: 0.8rem; padding-top: 0.8rem; justify-content: flex-end; align-items: center; gap: 12px;">
-                    ${workHoursHtml}
-                    <span class="data-value" style="font-size: 1.1rem; color: ${valueColor};">€${value.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}</span>
-                </div>
-            `;
-            dataContainer.appendChild(card);
-        } catch (e) {
-            console.error("Error rendering row:", index, e);
-        }
-    });
-}
-
-searchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase();
-    const filtered = g_currentHistoryRows.filter(row =>
-        row.some(cell => cell && cell.toString().toLowerCase().includes(query))
-    );
-    renderHistoryInner(filtered);
-});
-function renderInsights() {
-    const data = g_yearlyData[g_selectedYear] || [];
-    const insightsGrid = document.getElementById('insights-grid');
-    insightsGrid.innerHTML = '';
-
-    if (data.length === 0) {
-        insightsGrid.innerHTML = '<div class="loader">No data available for this year.</div>';
-        return;
-    }
-
-    // groups[Category][Subcategory] = sum
-    // biggest[Category] = { name, value }
-    const groups = {};
-    const biggest = {};
-
-    data.forEach(row => {
-        const dateStr = row[0] ? row[0].toString().trim() : '';
-        let month = -1;
-        if (dateStr) {
-            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-            if (parts.length >= 3) {
-                if (parts[2].length === 4) month = parseInt(parts[1]) - 1;
-                else if (parts[0].length === 4) month = parseInt(parts[1]) - 1;
-            }
-        }
-
-        // Apply Month Filter
-        if (g_selectedMonth !== 'All' && month !== g_selectedMonth) return;
-
-        const cat = (row[1] || 'Uncategorized').toString().trim();
-        const sub = (row[2] || 'Default').toString().trim();
-        const name = (row[4] || 'Expense').toString().trim();
-        const catLower = cat.toLowerCase();
-
-        // Skip Income/Investments for the detailed *Expense* breakdown
-        if (catLower === 'depositos' || catLower === 'investimentos') return;
-
-        let valStr = row[3] ? row[3].toString() : '0';
-        valStr = valStr.replace(/[€\s]/g, '').replace(',', '.').replace('-', '');
-        const val = parseFloat(valStr) || 0;
-
-        // Grouping
-        if (!groups[cat]) groups[cat] = {};
-        groups[cat][sub] = (groups[cat][sub] || 0) + val;
-
-        // Biggest Expense
-        if (!biggest[cat] || val > biggest[cat].value) {
-            biggest[cat] = { name, value: val };
-        }
-    });
-
-    const categories = Object.keys(groups).sort();
-
-    if (categories.length === 0) {
-        insightsGrid.innerHTML = '<div class="loader">No expenses found for this month.</div>';
-        return;
-    }
-
-    categories.forEach(cat => {
-        const card = document.createElement('div');
-        card.className = 'insight-card';
-
-        const emoji = getCategoryEmoji(cat);
-        let subHtml = '';
-        const subs = Object.entries(groups[cat]).sort((a, b) => b[1] - a[1]);
-        subs.forEach(([subName, subVal]) => {
-            subHtml += `
-                <div class="subcategory-item">
-                    <span class="subcategory-name">${subName}</span>
-                    <span class="subcategory-value">€${subVal.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}</span>
-                </div>
-            `;
+                <h3>${row[4] || 'Entry ' + (i+1)}</h3>
+                <div class="data-item"><span class="data-label">Category</span><span class="data-value">${Utils.getCategoryEmoji(row[1])} ${row[1]}</span></div>
+                <div class="data-item"><span class="data-label">Amount</span><span class="data-value" style="color:${cat==='depositos'?'#10b981':cat==='investimentos'?'#fbbf24':'#ef4444'}">${Utils.formatCurrency(Utils.parseValue(row[3]))}</span></div>
+                <div class="data-item"><span class="data-label">Date</span><span class="data-value">${row[0]}</span></div>`;
+            container.appendChild(card);
         });
+    }
+}
 
-        const top = biggest[cat];
-        const topHtml = top ? `
-            <div class="biggest-expense">
-                <span class="biggest-expense-label">Biggest Single Spend</span>
-                <span class="biggest-expense-name">${top.name}</span>
-                <span class="biggest-expense-value">€${top.value.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}</span>
-            </div>
-        ` : '';
-
-        card.innerHTML = `
-            <div class="insight-header">
-                <h4>${emoji} ${cat}</h4>
-            </div>
-            <div class="subcategory-list">
-                ${subHtml}
-            </div>
-            ${topHtml}
-        `;
-        insightsGrid.appendChild(card);
-    });
-
-    // Update History if visible to match month filter
-    if (g_showHistory) {
-        const filteredData = data.filter(row => {
-            const dateStr = row[0] ? row[0].toString().trim() : '';
-            if (!dateStr) return g_selectedMonth === 'All';
-            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-            let m = -1;
-            if (parts.length >= 3) {
-                if (parts[2].length === 4) m = parseInt(parts[1]) - 1;
-                else if (parts[0].length === 4) m = parseInt(parts[1]) - 1;
-            }
-            return g_selectedMonth === 'All' || m === g_selectedMonth;
-        });
-        renderTransactionList(filteredData);
+// --- 7. APP CONTROLLER ---
+class AppController {
+    constructor() {
+        this.state = new StateManager();
+        this.renderer = new UIRenderer(this.state);
+        this.api = null;
     }
 
-    updateCategoryChart(groups);
-}
-
-function updateCategoryChart(groups) {
-    const ctx = document.getElementById('categoryChart');
-    if (!ctx) return;
-
-    const labels = Object.keys(groups);
-    const data = labels.map(cat => Object.values(groups[cat]).reduce((a, b) => a + b, 0));
-    const backgroundColors = labels.map(getCategoryColor);
-
-    if (g_categoryChartInst) g_categoryChartInst.destroy();
-
-    g_categoryChartInst = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: backgroundColors,
-                borderWidth: 0,
-                hoverOffset: 20
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#94a3b8',
-                        font: { family: 'Outfit', size: 11 },
-                        padding: 20
-                    }
-                },
-                datalabels: {
-                    color: '#fff',
-                    font: {
-                        family: 'Outfit',
-                        weight: 'bold',
-                        size: 11
-                    },
-                    formatter: (value, ctx) => {
-                        const label = ctx.chart.data.labels[ctx.dataIndex];
-                        const emoji = getCategoryEmoji(label);
-                        return `${emoji} ${label}`;
-                    },
-                    display: (context) => {
-                        const dataset = context.dataset;
-                        const value = dataset.data[context.dataIndex];
-                        const total = dataset.data.reduce((a, b) => a + b, 0);
-                        return (value / total) > 0.05; // Show only if > 5%
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `€${context.parsed.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`
-                    }
-                }
-            },
-            cutout: '65%'
+    init() {
+        const url = localStorage.getItem(Config.STORAGE_KEY);
+        if (!url) this.showView('setup');
+        else {
+            this.api = new ApiService(url);
+            this.showView('dashboard');
+            this.loadCache();
+            this.refresh();
         }
-    });
+        this.bindEvents();
+        this.state.subscribe(() => this.renderer.render());
+    }
+
+    bindEvents() {
+        document.getElementById('save-url-btn').onclick = () => {
+            const val = document.getElementById('script-url-input').value.trim();
+            if (val.startsWith('https://script.google.com')) {
+                localStorage.setItem(Config.STORAGE_KEY, val);
+                location.reload();
+            }
+        };
+        document.getElementById('reset-btn').onclick = () => { if(confirm("Reset all?")) { localStorage.clear(); location.reload(); }};
+        document.getElementById('refresh-btn').onclick = () => this.refresh();
+        document.getElementById('nav-dashboard').onclick = () => this.showView('dashboard');
+        document.getElementById('nav-insights').onclick = () => this.showView('insights');
+        document.getElementById('toggle-history-btn').onclick = () => this.state.toggleHistory();
+        document.getElementById('sheet-search').oninput = (e) => {
+            const q = e.target.value.toLowerCase();
+            const filtered = this.state.getFilteredData().filter(r => r.some(c => c && c.toString().toLowerCase().includes(q)));
+            this.renderer.renderHistory(filtered);
+        };
+    }
+
+    async refresh() {
+        const btn = document.getElementById('refresh-btn');
+        btn.classList.add('spinning');
+        const data = await this.api.fetchData();
+        btn.classList.remove('spinning');
+        if (data) {
+            localStorage.setItem(Config.CACHE_KEY, JSON.stringify(data));
+            this.state.setData(data);
+        }
+    }
+
+    loadCache() {
+        const cached = localStorage.getItem(Config.CACHE_KEY);
+        if (cached) this.state.setData(JSON.parse(cached));
+    }
+
+    showView(view) {
+        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+        document.getElementById(`${view}-view`).classList.remove('hidden');
+        document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
+        const navBtn = document.getElementById(`nav-${view}`);
+        if (navBtn) navBtn.classList.add('active');
+    }
+
+    handleYearSelect(yr) { this.state.setYear(yr); }
+    handleMonthSelect(m) { this.state.setMonth(m); }
 }
+
+const app = new AppController();
+app.init();
