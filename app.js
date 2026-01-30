@@ -8,8 +8,8 @@ const Config = {
     STORAGE_KEY: 'sheet_url',
     CACHE_KEY: 'money_manager_cache',
     PALETTE: [
-        '#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', 
-        '#06b6d4', '#ec4899', '#3b82f6', '#f97316', '#84cc16', 
+        '#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6',
+        '#06b6d4', '#ec4899', '#3b82f6', '#f97316', '#84cc16',
         '#0ea5e9', '#d946ef'
     ],
     EMOJIS: {
@@ -55,10 +55,10 @@ class Utils {
             year = parts[2];
             month = parseInt(parts[1]) - 1;
         }
-        
+
         // Final sanity check for month
         if (isNaN(month) || month < 0 || month > 11) month = -1;
-        
+
         return { year, month };
     }
 
@@ -113,7 +113,7 @@ class StateManager {
 
     notify() {
         this.listeners.forEach(cb => {
-            try { cb(this); } catch(e) { console.error("Subscriber failed:", e); }
+            try { cb(this); } catch (e) { console.error("Subscriber failed:", e); }
         });
     }
 
@@ -121,7 +121,7 @@ class StateManager {
         if (!Array.isArray(data)) return;
         this.allData = data;
         this.processYearlyData();
-        const years = Object.keys(this.yearlyData).sort((a,b) => b-a);
+        const years = Object.keys(this.yearlyData).sort((a, b) => b - a);
         if (years.length > 0) {
             if (!this.selectedYear || !this.yearlyData[this.selectedYear]) {
                 this.selectedYear = years[0];
@@ -133,17 +133,17 @@ class StateManager {
     processYearlyData() {
         this.yearlyData = {};
         if (!this.allData) return;
-        
+
         this.allData.forEach((row, idx) => {
             // Basic validation for finance row (Date, Category, Sub, Val, Name)
             if (!row || row.length < 4) return;
-            
+
             const dateStr = row[0];
             const { year } = Utils.parseDate(dateStr);
-            
+
             // Skip header or non-date rows
             if (!year || isNaN(year)) return;
-            
+
             if (!this.yearlyData[year]) this.yearlyData[year] = [];
             this.yearlyData[year].push(row);
         });
@@ -202,37 +202,44 @@ class ChartManager {
         if (labels.length === 0) return;
 
         this.instance = new Chart(ctx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels,
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
+                    borderRadius: 8,
                     borderWidth: 0,
-                    hoverOffset: 20
+                    barThickness: 'flex',
+                    maxBarThickness: 50
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Outfit', size: 11 }, padding: 20 } },
+                    legend: { display: false },
                     datalabels: {
+                        anchor: 'end',
+                        align: 'top',
                         color: '#fff',
-                        font: { family: 'Outfit', weight: 'bold', size: 11 },
-                        formatter: (val, ctx) => {
-                            const label = ctx.chart.data.labels[ctx.dataIndex];
-                            return `${Utils.getCategoryEmoji(label)} ${label}`;
-                        },
-                        display: (ctx) => {
-                            const dataset = ctx.dataset;
-                            const total = dataset.data.reduce((a,b)=>a+b, 0);
-                            return total > 0 && (dataset.data[ctx.dataIndex] / total) > 0.05;
-                        }
+                        font: { family: 'Outfit', weight: 'bold', size: 10 },
+                        formatter: (val) => Utils.formatCurrency(val).split(',')[0],
+                        offset: 2
                     },
-                    tooltip: { callbacks: { label: (ctx) => Utils.formatCurrency(ctx.parsed) } }
+                    tooltip: { callbacks: { label: (ctx) => Utils.formatCurrency(ctx.parsed.y) } }
                 },
-                cutout: '65%'
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                        ticks: { color: '#94a3b8', font: { family: 'Outfit', size: 10 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { family: 'Outfit', size: 10 } }
+                    }
+                }
             }
         });
     }
@@ -260,9 +267,9 @@ class UIRenderer {
         const yearNav = document.getElementById('year-nav');
         const insightsYearNav = document.getElementById('insights-year-nav');
         const insightsMonthNav = document.getElementById('insights-month-nav');
-        
-        const years = Object.keys(this.state.yearlyData).sort((a,b) => b-a);
-        
+
+        const years = Object.keys(this.state.yearlyData).sort((a, b) => b - a);
+
         [yearNav, insightsYearNav].forEach(nav => {
             if (!nav) return;
             nav.innerHTML = '';
@@ -277,7 +284,7 @@ class UIRenderer {
 
         if (insightsMonthNav) {
             insightsMonthNav.innerHTML = '';
-            ['All', ...Array.from({length: 12}, (_, i) => i)].forEach(m => {
+            ['All', ...Array.from({ length: 12 }, (_, i) => i)].forEach(m => {
                 const btn = document.createElement('button');
                 btn.className = `month-tab ${this.state.selectedMonth === m ? 'active' : ''}`;
                 btn.innerText = m === 'All' ? 'All Months' : new Date(2000, m).toLocaleString('default', { month: 'short' });
@@ -318,7 +325,7 @@ class UIRenderer {
         if (!this.state.selectedYear) return;
         const prevYear = (parseInt(this.state.selectedYear) - 1).toString();
         const prevData = this.state.yearlyData[prevYear];
-        
+
         const setBadge = (id, cur, prev, rev = false) => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -355,7 +362,7 @@ class UIRenderer {
         const container = document.getElementById('category-bars');
         if (!container) return;
         container.innerHTML = '';
-        Object.entries(catMap).sort((a,b) => b[1]-a[1]).forEach(([name, val]) => {
+        Object.entries(catMap).sort((a, b) => b[1] - a[1]).forEach(([name, val]) => {
             const perc = totalExp > 0 ? (val / totalExp * 100) : 0;
             const item = document.createElement('div');
             item.className = 'bar-item';
@@ -394,10 +401,10 @@ class UIRenderer {
         Object.entries(groups).forEach(([cat, subs]) => {
             const card = document.createElement('div');
             card.className = 'insight-card';
-            let subHtml = Object.entries(subs).sort((a,b)=>b[1]-a[1]).map(([n, v]) => `
+            let subHtml = Object.entries(subs).sort((a, b) => b[1] - a[1]).map(([n, v]) => `
                 <div class="subcategory-item"><span class="subcategory-name">${n}</span><span class="subcategory-value">${Utils.formatCurrency(v)}</span></div>
             `).join('');
-            
+
             card.innerHTML = `
                 <div class="insight-header"><h4>${Utils.getCategoryEmoji(cat)} ${cat}</h4></div>
                 <div class="subcategory-list">${subHtml}</div>
@@ -407,7 +414,7 @@ class UIRenderer {
         });
 
         const labels = Object.keys(groups);
-        const values = labels.map(c => Object.values(groups[c]).reduce((a,b)=>a+b, 0));
+        const values = labels.map(c => Object.values(groups[c]).reduce((a, b) => a + b, 0));
         const colors = labels.map(c => this.state.getCategoryColor(c));
         this.chartManager.update(labels, values, colors);
         this.renderHistory(data);
@@ -432,10 +439,10 @@ class UIRenderer {
             if (!row || row.length < 4) return;
             const card = document.createElement('div');
             card.className = 'data-card';
-            const catStr = (row[1]||'').toString().toLowerCase();
-            const color = (catStr==='depositos'||catStr==='depósitos')?'#10b981':catStr==='investimentos'?'#fbbf24':'#ef4444';
+            const catStr = (row[1] || '').toString().toLowerCase();
+            const color = (catStr === 'depositos' || catStr === 'depósitos') ? '#10b981' : catStr === 'investimentos' ? '#fbbf24' : '#ef4444';
             card.innerHTML = `
-                <h3>${row[4] || 'Entry ' + (i+1)}</h3>
+                <h3>${row[4] || 'Entry ' + (i + 1)}</h3>
                 <div class="data-item"><span class="data-label">Category</span><span class="data-value">${Utils.getCategoryEmoji(row[1])} ${row[1]}</span></div>
                 <div class="data-item"><span class="data-label">Amount</span><span class="data-value" style="color:${color}">${Utils.formatCurrency(Utils.parseValue(row[3]))}</span></div>
                 <div class="data-item"><span class="data-label">Date</span><span class="data-value">${row[0]}</span></div>`;
@@ -479,20 +486,20 @@ class AppController {
         }
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
-            resetBtn.onclick = () => { if(confirm("Reset all settings?")) { localStorage.clear(); location.reload(); }};
+            resetBtn.onclick = () => { if (confirm("Reset all settings?")) { localStorage.clear(); location.reload(); } };
         }
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) refreshBtn.onclick = () => this.refresh();
-        
+
         const navDash = document.getElementById('nav-dashboard');
         if (navDash) navDash.onclick = () => this.showView('dashboard');
-        
+
         const navIns = document.getElementById('nav-insights');
         if (navIns) navIns.onclick = () => this.showView('insights');
-        
+
         const toggleBtn = document.getElementById('toggle-history-btn');
         if (toggleBtn) toggleBtn.onclick = () => this.state.toggleHistory();
-        
+
         const searchInput = document.getElementById('sheet-search');
         if (searchInput) {
             searchInput.oninput = (e) => {
@@ -508,10 +515,10 @@ class AppController {
         const btn = document.getElementById('refresh-btn');
         const updateLbl = document.getElementById('last-updated');
         if (btn) btn.classList.add('spinning');
-        
+
         const data = await this.api.fetchData();
         if (btn) btn.classList.remove('spinning');
-        
+
         if (data && Array.isArray(data)) {
             localStorage.setItem(Config.CACHE_KEY, JSON.stringify(data));
             this.state.setData(data);
@@ -525,7 +532,7 @@ class AppController {
             try {
                 const data = JSON.parse(cached);
                 if (Array.isArray(data)) this.state.setData(data);
-            } catch(e) { console.error("Cache corrupted:", e); }
+            } catch (e) { console.error("Cache corrupted:", e); }
         }
     }
 
@@ -533,7 +540,7 @@ class AppController {
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
         const el = document.getElementById(`${view}-view`);
         if (el) el.classList.remove('hidden');
-        
+
         document.querySelectorAll('.main-nav .nav-btn').forEach(b => b.classList.remove('active'));
         const navBtn = document.getElementById(`nav-${view}`);
         if (navBtn) navBtn.classList.add('active');
@@ -545,5 +552,5 @@ class AppController {
 
 // Global initialization
 const app = new AppController();
-window.app = app; 
+window.app = app;
 app.init();
