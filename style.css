@@ -243,41 +243,47 @@ main {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
+    align-items: stretch;
+}
+
+.stat-card {
+    max-width: none;
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
+    border-radius: 20px;
 }
 
-.stat-box {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 0.4rem 0.6rem;
-    text-align: center;
+.stat-card.income {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.03));
 }
 
-.stat-box h4 {
-    color: var(--text-dim);
-    font-size: 0.55rem;
-    margin-bottom: 0.1rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.stat-card.expense {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(255, 255, 255, 0.03));
 }
 
-.stat-box.income p {
+.stat-card.investment {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(255, 255, 255, 0.03));
+}
+
+.stat-card h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    margin: 0.25rem 0;
+}
+
+.stat-card.income h2 {
     color: var(--income-color);
 }
 
-.stat-box.expense p {
+.stat-card.expense h2 {
     color: var(--expense-color);
 }
 
-.stat-box.investment p {
+.stat-card.investment h2 {
     color: var(--investment-color);
-}
-
-.stat-box p {
-    font-weight: 700;
-    font-size: 1.4rem;
-    margin: 0.1rem 0;
 }
 
 .savings-rate {
@@ -292,9 +298,9 @@ main {
 }
 
 .growth-container {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     font-weight: 500;
-    margin-top: -0.1rem;
+    margin-top: 0.25rem;
 }
 
 .growth-badge {
