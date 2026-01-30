@@ -108,12 +108,15 @@
                 <!-- Moved Transactions to Insights -->
                 <div class="history-toggle-container">
                     <button id="toggle-history-btn" class="nav-btn">📦 Show Transactions</button>
-                    <div class="search-box">
-                        <input type="text" id="sheet-search" placeholder="Search transactions...">
-                    </div>
                 </div>
 
                 <div id="history-section" class="history-section hidden">
+                    <div class="search-box-container">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="sheet-search" placeholder="Search transactions...">
+                        </div>
+                    </div>
                     <div id="data-container">
                         <!-- History will be injected here -->
                     </div>
