@@ -14,7 +14,7 @@ const Config = {
     ],
     EMOJIS: {
         'casa': '🏠', 'moradia': '🏠', 'comida': '🍔', 'alimentaçao': '🍔', 'alimentação': '🍔',
-        'restaurantes': '🍕', 'supermercado': '🍎', 'transporte': '🚗', 'carro': '🚗',
+        'restaurantes': '🍕', 'supermercado': '🍎', 'super mercado': '🍎', 'transporte': '🚗', 'carro': '🚗',
         'combustivel': '⛽', 'combustível': '⛽', 'lazer': '🍿', 'viagens': '✈️',
         'saude': '🏥', 'saúde': '🏥', 'farmacia': '💊', 'farmácia': '💊',
         'educaçao': '📚', 'educação': '📚', 'compras': '🛍️', 'shopping': '🛍️',
