@@ -14,7 +14,7 @@ const Config = {
     ],
     EMOJIS: {
         'casa': '🏠', 'moradia': '🏠', 'comida': '🍔', 'alimentaçao': '🍔', 'alimentação': '🍔',
-        'restaurantes': '🍕', 'supermercado': '🛒', 'transporte': '🚗', 'carro': '🚗',
+        'restaurantes': '🍕', 'supermercado': '🍎', 'transporte': '🚗', 'carro': '🚗',
         'combustivel': '⛽', 'combustível': '⛽', 'lazer': '🍿', 'viagens': '✈️',
         'saude': '🏥', 'saúde': '🏥', 'farmacia': '💊', 'farmácia': '💊',
         'educaçao': '📚', 'educação': '📚', 'compras': '🛍️', 'shopping': '🛍️',
@@ -23,6 +23,7 @@ const Config = {
         'internet': '🌐', 'telemovel': '📱', 'telemóvel': '📱', 'ginasio': '🏋️',
         'ginásio': '🏋️', 'desporto': '⚽', 'presentes': '🎁', 'animais': '🐾',
         'pet': '🐾', 'seguros': '🛡️', 'impostos': '📑', 'serviços': '🛠️',
+        'gadgets': '📱', 'roupas': '👕', 'despesas': '💸',
         'uncategorized': '❓', 'default': '💰'
     }
 };
