@@ -22,6 +22,7 @@
             <nav class="main-nav">
                 <button id="nav-dashboard" class="nav-btn active">Dashboard</button>
                 <button id="nav-insights" class="nav-btn">Insights</button>
+                <button id="nav-investments" class="nav-btn">Investments</button>
             </nav>
             <button id="refresh-btn" class="icon-btn" title="Refresh Data">
                 🔄
@@ -129,6 +130,22 @@
                     <div id="data-container">
                         <!-- History will be injected here -->
                     </div>
+                </div>
+            </section>
+
+            <!-- Investments View -->
+            <section id="investments-view" class="view hidden">
+                <div class="recap-section">
+                    <div class="glass-card recap-card">
+                        <span class="recap-label">Total Invested</span>
+                        <h2 id="total-invested-view">€0.00</h2>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem; color: var(--text-dim); font-size: 0.9rem; text-transform: uppercase;">
+                    Investment Transactions</h3>
+                <div id="investments-container" class="data-grid">
+                    <!-- Investment cards injected here -->
                 </div>
             </section>
         </main>

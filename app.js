@@ -389,6 +389,36 @@ class UIRenderer {
         const insightsYearNav = document.getElementById('insights-year-nav');
         const insightsMonthNav = document.getElementById('insights-month-nav');
 
+        const navDashboard = document.getElementById('nav-dashboard');
+        const navInsights = document.getElementById('nav-insights');
+        const navInvestments = document.getElementById('nav-investments');
+        const dashboardView = document.getElementById('dashboard-view');
+        const insightsView = document.getElementById('insights-view');
+        const investmentsView = document.getElementById('investments-view');
+
+        const switchView = (viewName) => {
+            [navDashboard, navInsights, navInvestments].forEach(btn => btn?.classList.remove('active'));
+            [dashboardView, insightsView, investmentsView].forEach(view => view?.classList.add('hidden'));
+
+            if (viewName === 'dashboard') {
+                navDashboard?.classList.add('active');
+                dashboardView?.classList.remove('hidden');
+                this.renderDashboard(); // Only render dashboard, not the whole app
+            } else if (viewName === 'insights') {
+                navInsights?.classList.add('active');
+                insightsView?.classList.remove('hidden');
+                this.renderInsights();
+            } else if (viewName === 'investments') {
+                navInvestments?.classList.add('active');
+                investmentsView?.classList.remove('hidden');
+                this.renderInvestments();
+            }
+        };
+
+        if (navDashboard) navDashboard.onclick = () => switchView('dashboard');
+        if (navInsights) navInsights.onclick = () => switchView('insights');
+        if (navInvestments) navInvestments.onclick = () => switchView('investments');
+
         const years = Object.keys(this.state.yearlyData).sort((a, b) => b - a);
 
         [yearNav, insightsYearNav].forEach(nav => {
@@ -597,6 +627,72 @@ class UIRenderer {
         const colors = labels.map(c => this.state.getCategoryColor(c));
         this.chartManager.update(labels, values, colors);
         this.renderHistory(data);
+    }
+
+    renderInvestments() {
+        const data = this.state.getFilteredData();
+        const container = document.getElementById('investments-container');
+        const totalEl = document.getElementById('total-invested-view');
+        if (!container || !totalEl) return;
+
+        container.innerHTML = '';
+        let totalInvested = 0;
+        const investmentRows = [];
+
+        data.forEach(row => {
+            const cat = (row[1] || '').toLowerCase();
+            if (cat === 'investimentos') {
+                const val = Utils.parseValue(row[3]);
+                totalInvested += val;
+                investmentRows.push(row);
+            }
+        });
+
+        this.safeSetText('total-invested-view', Utils.formatCurrency(totalInvested));
+
+        // Sort by date descending
+        investmentRows.sort((a, b) => {
+            const da = Utils.parseDate(a[0]);
+            const db = Utils.parseDate(b[0]);
+            // Compare years first
+            if (da.year !== db.year) return (db.year || 0) - (da.year || 0);
+            return (db.month - da.month); // Rough sort by month if years equal (since we only parsed month index)
+            // Ideally date parsing should be better for strict sorting but this fits current Utils
+        });
+
+        if (investmentRows.length === 0) {
+            container.innerHTML = '<p class="text-dim" style="grid-column: 1/-1; text-align: center;">No investments found.</p>';
+            return;
+        }
+
+        investmentRows.forEach(row => {
+            const date = row[0];
+            const cat = row[1];
+            const sub = row[2];
+            const val = Utils.parseValue(row[3]);
+            const desc = row[4] || '';
+
+            // Reuse transaction card style
+            const card = document.createElement('div');
+            card.className = 'data-card';
+            card.innerHTML = `
+                 <div class="transaction-header">
+                     <div class="transaction-title">
+                         <span class="transaction-emoji">${Utils.getCategoryEmoji(cat)}</span>
+                         <div class="transaction-info">
+                             <span class="transaction-category">${cat}</span>
+                             <span class="transaction-sub">${sub}</span>
+                         </div>
+                     </div>
+                     <div class="transaction-amount">
+                         <span>${Utils.formatCurrency(val)}</span>
+                     </div>
+                 </div>
+                 ${desc ? `<p class="transaction-desc">${desc}</p>` : ''}
+                 <span class="transaction-date">${date}</span>
+             `;
+            container.appendChild(card);
+        });
     }
 
     renderHistory(data) {
