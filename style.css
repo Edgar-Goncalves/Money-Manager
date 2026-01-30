@@ -44,8 +44,15 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 0 2rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--glass-border);
     margin-bottom: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .logo {
@@ -400,18 +407,6 @@ main {
     border-color: var(--primary-color);
 }
 
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 2rem;
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--glass-border);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
 
 .main-nav {
     display: flex;
@@ -643,16 +638,38 @@ footer {
     }
 
     header {
-        flex-direction: column;
-        height: auto;
-        padding: 1.5rem 1rem;
-        gap: 1.5rem;
-        text-align: center;
+        display: grid;
+        grid-template-areas:
+            "logo refresh"
+            "nav nav";
+        grid-template-columns: 1fr auto;
+        height: auto !important;
+        padding: 0.5rem 1rem !important;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .logo {
+        grid-area: logo;
+        text-align: left;
+        font-size: 1.1rem;
+    }
+
+    #refresh-btn {
+        grid-area: refresh;
+        padding: 0.4rem;
+        font-size: 1rem;
     }
 
     .main-nav {
+        grid-area: nav;
         width: 100%;
         justify-content: center;
+    }
+
+    .nav-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
     }
 
     .recap-section {
