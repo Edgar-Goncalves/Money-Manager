@@ -466,9 +466,11 @@ main {
     left: 1.25rem;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 1.1rem;
+    width: 18px;
+    height: 18px;
     pointer-events: none;
-    opacity: 0.6;
+    opacity: 0.5;
+    color: var(--text-dim);
 }
 
 .search-box input {
@@ -501,33 +503,73 @@ main {
 .data-card {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    padding: 1.5rem;
+    padding: 1.25rem;
     border-radius: 16px;
     transition: var(--transition);
 }
 
-.data-card h3 {
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
+.data-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
 }
 
-.data-item {
+/* Transaction Card Styles */
+.transaction-header {
     display: flex;
     justify-content: space-between;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    align-items: flex-start;
+    gap: 1rem;
 }
 
-.data-label {
-    color: var(--text-dim);
+.transaction-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.transaction-emoji {
+    font-size: 1.5rem;
+}
+
+.transaction-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.transaction-category {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: white;
+}
+
+.transaction-sub {
     font-size: 0.8rem;
+    color: var(--text-dim);
 }
 
-.data-value {
-    font-weight: 500;
+.transaction-amount {
+    text-align: right;
+    font-weight: 700;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.transaction-desc {
+    margin: 0.75rem 0 0 0;
+    color: var(--text-dim);
     font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.transaction-date {
+    display: block;
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    opacity: 0.7;
 }
 
 .work-hours-badge {

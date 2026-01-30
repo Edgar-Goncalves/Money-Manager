@@ -386,6 +386,14 @@ class UIRenderer {
         if (!grid) return;
         grid.innerHTML = '';
 
+        // Calculate hourly rate for work time display
+        const currentYearData = this.state.getCurrentYearData();
+        const yearlyIncome = currentYearData.reduce((acc, row) => {
+            const cat = (row[1] || '').toLowerCase();
+            return (cat === 'depositos' || cat === 'depósitos') ? acc + Utils.parseValue(row[3]) : acc;
+        }, 0);
+        const hourlyRate = yearlyIncome / (44 * 52);
+
         const groups = {}, biggest = {};
         data.forEach(row => {
             const cat = (row[1] || 'Other').toString().trim();
@@ -407,10 +415,22 @@ class UIRenderer {
                 <div class="subcategory-item"><span class="subcategory-name">${n}</span><span class="subcategory-value">${Utils.formatCurrency(v)}</span></div>
             `).join('');
 
+            let biggestHtml = '';
+            if (biggest[cat]) {
+                const biggestVal = biggest[cat].value;
+                let workTimeHtml = '';
+                if (hourlyRate > 0) {
+                    const hours = biggestVal / hourlyRate;
+                    const hoursFormatted = hours >= 1 ? `${hours.toFixed(1)}h` : `${(hours * 60).toFixed(0)}m`;
+                    workTimeHtml = `<span class="work-hours-badge">⏳ ${hoursFormatted}</span>`;
+                }
+                biggestHtml = `<div class="biggest-expense"><span class="biggest-expense-label">Biggest Spend</span><span class="biggest-expense-name">${biggest[cat].name}</span><span class="biggest-expense-value">${Utils.formatCurrency(biggestVal)} ${workTimeHtml}</span></div>`;
+            }
+
             card.innerHTML = `
                 <div class="insight-header"><h4>${Utils.getCategoryEmoji(cat)} ${cat}</h4></div>
                 <div class="subcategory-list">${subHtml}</div>
-                ${biggest[cat] ? `<div class="biggest-expense"><span class="biggest-expense-label">Biggest Spend</span><span class="biggest-expense-name">${biggest[cat].name}</span><span class="biggest-expense-value">${Utils.formatCurrency(biggest[cat].value)}</span></div>` : ''}
+                ${biggestHtml}
             `;
             grid.appendChild(card);
         });
@@ -452,28 +472,42 @@ class UIRenderer {
             const card = document.createElement('div');
             card.className = 'data-card';
             const catStr = (row[1] || '').toString().toLowerCase();
-            const color = (catStr === 'depositos' || catStr === 'depósitos') ? '#10b981' : catStr === 'investimentos' ? '#fbbf24' : '#ef4444';
+            const isExpense = !(catStr === 'depositos' || catStr === 'depósitos' || catStr === 'investimentos');
 
             const amount = Utils.parseValue(row[3]);
             let workHoursHtml = '';
 
-            if (hourlyRate > 0 && color === '#ef4444') { // Only for expenses
+            if (hourlyRate > 0 && isExpense) {
                 const hours = amount / hourlyRate;
                 const hoursFormatted = hours >= 1 ? `${hours.toFixed(1)}h` : `${(hours * 60).toFixed(0)}m`;
-                workHoursHtml = `<span class="work-hours-badge" title="Time worked to earn this amount">${hoursFormatted} of work</span>`;
+                workHoursHtml = `<span class="work-hours-badge" title="Time worked to earn this amount">⏳ ${hoursFormatted}</span>`;
             }
 
-            // Remove time from date string (everything after the first space or T)
+            // Remove time from date string
             const dateOnly = (row[0] || '').split(' ')[0].split('T')[0];
 
+            // Get subcategory and description
+            const category = row[1] || '';
+            const subCategory = row[2] || '';
+            const description = row[4] || '';
+            const amountFormatted = Utils.formatCurrency(amount);
+
             card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-                    <h3 style="margin: 0;">${row[4] || 'Entry ' + (i + 1)}</h3>
-                    ${workHoursHtml}
+                <div class="transaction-header">
+                    <div class="transaction-title">
+                        <span class="transaction-emoji">${Utils.getCategoryEmoji(category)}</span>
+                        <div class="transaction-info">
+                            <span class="transaction-category">${category}</span>
+                            ${subCategory ? `<span class="transaction-sub">${subCategory}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="transaction-amount" style="color: ${isExpense ? '#ef4444' : catStr === 'investimentos' ? '#fbbf24' : '#10b981'}">
+                        ${amountFormatted}
+                        ${workHoursHtml}
+                    </div>
                 </div>
-                <div class="data-item"><span class="data-label">Category</span><span class="data-value">${Utils.getCategoryEmoji(row[1])} ${row[1]}</span></div>
-                <div class="data-item"><span class="data-label">Amount</span><span class="data-value" style="color:${color}">${Utils.formatCurrency(amount)}</span></div>
-                <div class="data-item"><span class="data-label">Date</span><span class="data-value">${dateOnly}</span></div>`;
+                ${description ? `<p class="transaction-desc">${description}</p>` : ''}
+                <span class="transaction-date">${dateOnly}</span>`;
             container.appendChild(card);
         });
     }
