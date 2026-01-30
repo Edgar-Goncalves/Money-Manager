@@ -428,15 +428,6 @@ class UIRenderer {
             if (!nav) return;
             nav.innerHTML = '';
 
-            // Add 'All' option specifically for investments page
-            if (nav.id === 'investments-year-nav') {
-                const allBtn = document.createElement('button');
-                allBtn.className = `year-tab ${this.state.selectedYear === 'All' ? 'active' : ''}`;
-                allBtn.innerText = 'All Years';
-                allBtn.onclick = () => window.app.handleYearSelect('All');
-                nav.appendChild(allBtn);
-            }
-
             years.forEach(yr => {
                 const btn = document.createElement('button');
                 btn.className = `year-tab ${this.state.selectedYear === yr ? 'active' : ''}`;
@@ -647,71 +638,51 @@ class UIRenderer {
     }
 
     renderHeatmap(data) {
-        // Prepare 7x24 grid
-        const grid = Array(7).fill(0).map(() => Array(24).fill(0));
+        // New Requirement: Heatmap for Days of the Month (X: 1-31) vs Month (Y: Jan-Dec)
+        // Grid: 12 months x 31 days
+        const grid = Array(12).fill(0).map(() => Array(31).fill(0));
         let maxVal = 0;
 
         data.forEach(row => {
-            const dateStr = row[0];
-            const timeStr = row[0]; // Assuming date field might contain time or we parse a separate field? 
-            // Wait, standard GSheets date usually doesn't have time unless formatted. 
-            // CHECK: The User's previous logs show dates like "2024-01-01". 
-            // If there is no time data, a heatmap by hour is impossible.
-            // Let's assume the date string might be "YYYY-MM-DD HH:mm:ss" OR we only do Day of Week if time is missing.
+            // Parse Date
+            const parts = row[0].split(/[/\-\s]/);
+            let jsDate = null;
 
-            // Let's safe check Utils.parseDate. It only returns year/month. 
-            // modifying Utils.parseDate or checking raw row[0] is needed.
-            // However, looking at standard personal finance sheets, exact time is rare.
-            // IF NO TIME DATA: We can only show Day of Week intensity.
-            // Let's check Utils.parseDate again. It splits by / or -.
-
-            // Re-evaluating strategy: If strict time is missing, we can map just Day of Week (Sun-Sat).
-            // Let's try to extract Day of Week from the date object.
-
-            const d = Utils.parseDate(row[0]);
-            if (!d.year) return;
-            const dateObj = new Date(d.year, d.month, parseInt(row[0].split(/[/-]/)[0])); // rough parse
-            // Actually, let's use a better Date parser if possible, or just standard JS Date(row[0]) if format allows.
-            // Given "YYYY-MM-DD" or "DD/MM/YYYY", let's try to get Day of Week.
-
-            // Helper to parse day of week
-            const parts = row[0].includes('/') ? row[0].split('/') : row[0].split('-');
-            let jsDate;
-            if (parts[0].length === 4) jsDate = new Date(parts[0], parts[1] - 1, parts[2]); // YYYY-MM-DD
-            else jsDate = new Date(parts[2], parts[1] - 1, parts[0]); // DD-MM-YYYY
+            // Robust parsing logic
+            if (row[0].includes('-')) {
+                // Likely YYYY-MM-DD
+                jsDate = new Date(parts[0], (parseInt(parts[1]) || 1) - 1, parts[2]);
+            } else {
+                // Likely DD/MM/YYYY
+                jsDate = new Date(parts[2], (parseInt(parts[1]) || 1) - 1, parts[0]);
+            }
 
             if (!jsDate || isNaN(jsDate.getTime())) return;
 
-            const dayOfWeek = jsDate.getDay(); // 0=Sun, 6=Sat
-            // Arbitrarily assigning to "12pm" (hour 12) if no time exists, 
-            // BUT if the user HAS time in the string (e.g. "2024-01-01 14:30"), we capture it.
-
-            let hour = 12; // Default to noon if no time
-            if (row[0].includes(':')) {
-                const timeParts = row[0].split(' ')[1];
-                if (timeParts) hour = parseInt(timeParts.split(':')[0]);
-            }
+            const month = jsDate.getMonth(); // 0-11
+            const day = jsDate.getDate() - 1; // 0-30 (Internal index)
 
             const val = Utils.parseValue(row[3]);
-            // Only count expenses
             const cat = (row[1] || '').toLowerCase();
+
+            // Count standard expenses only
             if (cat !== 'depositos' && cat !== 'depósitos' && cat !== 'investimentos') {
-                grid[dayOfWeek][hour] += val;
-                if (grid[dayOfWeek][hour] > maxVal) maxVal = grid[dayOfWeek][hour];
+                grid[month][day] += val;
+                if (grid[month][day] > maxVal) maxVal = grid[month][day];
             }
         });
 
         const bubbles = [];
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const monthNames = Object.values(Config.MONTHS).map(m => m.substring(0, 3)); // Jan, Feb...
 
-        for (let d = 0; d < 7; d++) {
-            for (let h = 0; h < 24; h++) {
-                if (grid[d][h] > 0) {
+        for (let m = 0; m < 12; m++) {
+            for (let d = 0; d < 31; d++) {
+                if (grid[m][d] > 0) {
                     bubbles.push({
-                        x: h, // Hour
-                        y: d, // Day
-                        r: Math.min(Math.max((grid[d][h] / maxVal) * 20, 3), 20), // Scale radius 3-20px
-                        v: grid[d][h] // Raw value for tooltip
+                        x: d + 1, // Day 1-31
+                        y: m,     // Month Index
+                        r: Math.min(Math.max((grid[m][d] / maxVal) * 15, 2), 15), // Radius 2-15px
+                        v: grid[m][d]
                     });
                 }
             }
@@ -724,9 +695,9 @@ class UIRenderer {
             type: 'bubble',
             data: {
                 datasets: [{
-                    label: 'Spending Intensity',
+                    label: 'Daily Spending',
                     data: bubbles,
-                    backgroundColor: 'rgba(244, 63, 94, 0.6)', // Rose/Red
+                    backgroundColor: 'rgba(244, 63, 94, 0.6)',
                     borderColor: 'rgba(244, 63, 94, 1)',
                     borderWidth: 1
                 }]
@@ -739,9 +710,9 @@ class UIRenderer {
                     tooltip: {
                         callbacks: {
                             label: (c) => {
-                                const day = days[c.raw.y];
-                                const time = `${c.raw.x}:00`;
-                                return `${day} @ ${time}: ${Utils.formatCurrency(c.raw.v)}`;
+                                const mName = monthNames[c.raw.y];
+                                const day = c.raw.x;
+                                return `${mName} ${day}: ${Utils.formatCurrency(c.raw.v)}`;
                             }
                         }
                     }
@@ -749,20 +720,20 @@ class UIRenderer {
                 scales: {
                     y: {
                         type: 'category',
-                        labels: days,
+                        labels: monthNames,
                         grid: { color: 'rgba(255,255,255,0.05)' },
                         ticks: { color: '#94a3b8' }
                     },
                     x: {
                         type: 'linear',
-                        min: -1,
-                        max: 24,
-                        position: 'bottom',
+                        min: 0,
+                        max: 32,
+                        title: { display: true, text: 'Day of Month', color: '#64748b' },
                         grid: { display: false },
                         ticks: {
-                            stepSize: 2,
-                            callback: (v) => `${v}:00`,
-                            color: '#94a3b8'
+                            stepSize: 1,
+                            color: '#94a3b8',
+                            callback: (v) => v % 2 === 0 ? v : '' // Show even days to reduce clutter
                         }
                     }
                 }
@@ -771,13 +742,8 @@ class UIRenderer {
     }
 
     renderInvestments() {
-        // Handle "All" years selection or specific year
-        let data;
-        if (this.state.selectedYear === 'All') {
-            data = this.state.allData || [];
-        } else {
-            data = this.state.getFilteredData();
-        }
+        // Standard data retrieval (respects global selectedYear)
+        const data = this.state.getFilteredData();
 
         const container = document.getElementById('investments-container');
         const totalEl = document.getElementById('total-invested-view');
