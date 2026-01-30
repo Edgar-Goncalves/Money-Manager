@@ -151,7 +151,11 @@ class StateManager {
             // Filter current year data for this month
             currentYearRows.forEach(row => {
                 const { year, month } = Utils.parseDate(row[0]);
-                if (year == this.selectedYear && month === (m - 1)) { // month from parseDate is 0-indexed
+                // If 'All' is selected, we aggregate by month across ALL years (Seasonality view)
+                // Otherwise, we filter by the specific selected year
+                const isYearMatch = this.selectedYear === 'All' || year == this.selectedYear;
+
+                if (isYearMatch && month === (m - 1)) { // month from parseDate is 0-indexed
                     const val = Utils.parseValue(row[3]);
                     const cat = (row[1] || '').toLowerCase();
 
@@ -225,6 +229,8 @@ class StateManager {
     }
 
     getCurrentYearData() {
+        if (!this.selectedYear) return [];
+        if (this.selectedYear === 'All') return this.allData || [];
         return this.yearlyData[this.selectedYear] || [];
     }
 
