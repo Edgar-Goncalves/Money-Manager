@@ -549,7 +549,13 @@ class UIRenderer {
     }
 
     renderGrowth(curInc, curExp, curInv) {
-        if (!this.state.selectedYear) return;
+        if (!this.state.selectedYear || this.state.selectedYear === 'All') {
+            ['growth-income', 'growth-expenses', 'growth-investments'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '';
+            });
+            return;
+        }
         const prevYear = (parseInt(this.state.selectedYear) - 1).toString();
         const prevData = this.state.yearlyData[prevYear];
 
