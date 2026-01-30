@@ -437,17 +437,43 @@ class UIRenderer {
         btn.innerText = "📁 Hide Transactions";
         section.classList.remove('hidden');
         container.innerHTML = data.length ? '' : '<div class="loader">No transactions matching filters.</div>';
+
+        // Calculate Work Hours logic
+        const currentYearData = this.state.getCurrentYearData();
+        const yearlyIncome = currentYearData.reduce((acc, row) => {
+            const cat = (row[1] || '').toLowerCase();
+            return (cat === 'depositos' || cat === 'depósitos') ? acc + Utils.parseValue(row[3]) : acc;
+        }, 0);
+        // 44 hours/week * 52 weeks = 2288 hours/year
+        const hourlyRate = yearlyIncome / (44 * 52);
+
         data.forEach((row, i) => {
             if (!row || row.length < 4) return;
             const card = document.createElement('div');
             card.className = 'data-card';
             const catStr = (row[1] || '').toString().toLowerCase();
             const color = (catStr === 'depositos' || catStr === 'depósitos') ? '#10b981' : catStr === 'investimentos' ? '#fbbf24' : '#ef4444';
+
+            const amount = Utils.parseValue(row[3]);
+            let workHoursHtml = '';
+
+            if (hourlyRate > 0 && color === '#ef4444') { // Only for expenses
+                const hours = amount / hourlyRate;
+                const hoursFormatted = hours >= 1 ? `${hours.toFixed(1)}h` : `${(hours * 60).toFixed(0)}m`;
+                workHoursHtml = `<span class="work-hours-badge" title="Time worked to earn this amount">${hoursFormatted} of work</span>`;
+            }
+
+            // Remove time from date string (everything after the first space or T)
+            const dateOnly = (row[0] || '').split(' ')[0].split('T')[0];
+
             card.innerHTML = `
-                <h3>${row[4] || 'Entry ' + (i + 1)}</h3>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                    <h3 style="margin: 0;">${row[4] || 'Entry ' + (i + 1)}</h3>
+                    ${workHoursHtml}
+                </div>
                 <div class="data-item"><span class="data-label">Category</span><span class="data-value">${Utils.getCategoryEmoji(row[1])} ${row[1]}</span></div>
-                <div class="data-item"><span class="data-label">Amount</span><span class="data-value" style="color:${color}">${Utils.formatCurrency(Utils.parseValue(row[3]))}</span></div>
-                <div class="data-item"><span class="data-label">Date</span><span class="data-value">${row[0]}</span></div>`;
+                <div class="data-item"><span class="data-label">Amount</span><span class="data-value" style="color:${color}">${Utils.formatCurrency(amount)}</span></div>
+                <div class="data-item"><span class="data-label">Date</span><span class="data-value">${dateOnly}</span></div>`;
             container.appendChild(card);
         });
     }
