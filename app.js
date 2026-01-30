@@ -25,6 +25,10 @@ const Config = {
         'pet': '🐾', 'seguros': '🛡️', 'impostos': '📑', 'serviços': '🛠️',
         'gadgets': '📱', 'roupas': '👕', 'despesas': '💸',
         'uncategorized': '❓', 'default': '💰'
+    },
+    MONTHS: {
+        1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
+        7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December'
     }
 };
 
@@ -122,11 +126,58 @@ class StateManager {
         this.allData = data;
         this.processYearlyData();
         const years = Object.keys(this.yearlyData).sort((a, b) => b - a);
+
+        // Ensure selectedYear is set before processing dashboard data
         if (years.length > 0) {
             if (!this.selectedYear || !this.yearlyData[this.selectedYear]) {
                 this.selectedYear = years[0];
             }
         }
+
+        // Prepare data for dashboard chart
+        const sortedMonths = Object.keys(Config.MONTHS).map(Number).sort((a, b) => a - b);
+        const curKeys = sortedMonths.map(m => `${Utils.getCategoryEmoji(Config.MONTHS[m])} ${Config.MONTHS[m].substring(0, 3)}`);
+
+        const incomeTrend = [];
+        const expenseTrend = [];
+        const investmentTrend = [];
+
+        // Aggregate data by month for the selected year
+        const currentYearRows = this.getCurrentYearData(); // Get data for the currently selected year
+
+        sortedMonths.forEach(m => {
+            let mInc = 0, mExp = 0, mInv = 0;
+
+            // Filter current year data for this month
+            currentYearRows.forEach(row => {
+                const { year, month } = Utils.parseDate(row[0]);
+                if (year == this.selectedYear && month === (m - 1)) { // month from parseDate is 0-indexed
+                    const val = Utils.parseValue(row[3]);
+                    const cat = (row[1] || '').toLowerCase();
+
+                    if (cat === 'depositos' || cat === 'depósitos') {
+                        mInc += val;
+                    } else if (cat === 'investimentos') {
+                        mInv += val;
+                    } else {
+                        mExp += val;
+                    }
+                }
+            });
+
+            incomeTrend.push(mInc);
+            expenseTrend.push(mExp);
+            investmentTrend.push(mInv);
+        });
+
+        // Assuming this.dashboardChartManager is available and initialized
+        // This call should ideally be in UIRenderer.renderDashboard, but placing it here as per instruction's snippet location.
+        // The UIRenderer will need access to these aggregated trends.
+        // For now, we'll call it directly, but a refactor might pass these trends to the UIRenderer.
+        if (this.dashboardChartManager) { // Check if dashboardChartManager exists
+            this.dashboardChartManager.updateDashboard(curKeys, incomeTrend, expenseTrend, investmentTrend);
+        }
+
         this.notify();
     }
 
@@ -194,6 +245,73 @@ class ChartManager {
         }
     }
 
+    updateDashboard(labels, incomeData, expenseData, investmentData) {
+        if (this.instance) this.instance.destroy();
+        const ctx = document.getElementById(this.canvasId);
+        if (!ctx) return;
+
+        this.instance = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: incomeData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Expenses',
+                        data: expenseData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Investments',
+                        data: investmentData,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { family: 'Outfit', size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => ' ' + c.dataset.label + ': ' + Utils.formatCurrency(c.raw)
+                        },
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 10,
+                        itemSort: (a, b) => b.raw - a.raw
+                    },
+                    datalabels: { display: false } // Disable datalabels for this chart to avoid clutter
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                        ticks: { color: '#94a3b8', font: { family: 'Outfit', size: 10 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { family: 'Outfit', size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
     update(labels, values, colors) {
         const ctx = document.getElementById(this.canvasId);
         if (!ctx || typeof Chart === 'undefined') return;
@@ -252,6 +370,7 @@ class UIRenderer {
     constructor(state) {
         this.state = state;
         this.chartManager = new ChartManager('categoryChart');
+        this.dashboardChartManager = new ChartManager('dashboardChart');
     }
 
     safeSetText(id, text) {
@@ -321,6 +440,43 @@ class UIRenderer {
 
         this.renderGrowth(totalIncome, totalExpenses, totalInvestments);
         this.renderBars(catMap, totalExpenses);
+
+        // --- DASHBOARD CHART AGGREGATION ---
+        const sortedMonths = Object.keys(Config.MONTHS).map(Number).sort((a, b) => a - b);
+        const curKeys = sortedMonths.map(m => `${Config.MONTHS[m].substring(0, 3)}`); // e.g. "Jan", "Feb"
+
+        const incomeTrend = [];
+        const expenseTrend = [];
+        const investmentTrend = [];
+
+        sortedMonths.forEach(m => {
+            let mInc = 0, mExp = 0, mInv = 0;
+
+            // Filter global current year data for this month independently of dashboard totals
+            data.forEach(row => {
+                const date = Utils.parseDate(row[0]);
+                if (date && (date.getMonth() + 1) === m) {
+                    const val = Utils.parseValue(row[3]);
+                    const cat = (row[1] || '').toLowerCase();
+
+                    if (cat === 'depositos' || cat === 'depósitos') {
+                        mInc += val;
+                    } else if (cat === 'investimentos') {
+                        mInv += val;
+                    } else {
+                        mExp += val;
+                    }
+                }
+            });
+
+            incomeTrend.push(mInc);
+            expenseTrend.push(mExp);
+            investmentTrend.push(mInv);
+        });
+
+        if (this.dashboardChartManager) {
+            this.dashboardChartManager.updateDashboard(curKeys, incomeTrend, expenseTrend, investmentTrend);
+        }
     }
 
     renderGrowth(curInc, curExp, curInv) {
