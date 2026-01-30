@@ -419,11 +419,23 @@ class UIRenderer {
         if (navInsights) navInsights.onclick = () => switchView('insights');
         if (navInvestments) navInvestments.onclick = () => switchView('investments');
 
+        const investmentsYearNav = document.getElementById('investments-year-nav');
+
         const years = Object.keys(this.state.yearlyData).sort((a, b) => b - a);
 
-        [yearNav, insightsYearNav].forEach(nav => {
+        [document.getElementById('year-nav'), document.getElementById('insights-year-nav'), investmentsYearNav].forEach(nav => {
             if (!nav) return;
             nav.innerHTML = '';
+
+            // Add 'All' option specifically for investments page
+            if (nav.id === 'investments-year-nav') {
+                const allBtn = document.createElement('button');
+                allBtn.className = `year-tab ${this.state.selectedYear === 'All' ? 'active' : ''}`;
+                allBtn.innerText = 'All Years';
+                allBtn.onclick = () => window.app.handleYearSelect('All');
+                nav.appendChild(allBtn);
+            }
+
             years.forEach(yr => {
                 const btn = document.createElement('button');
                 btn.className = `year-tab ${this.state.selectedYear === yr ? 'active' : ''}`;
@@ -630,7 +642,14 @@ class UIRenderer {
     }
 
     renderInvestments() {
-        const data = this.state.getFilteredData();
+        // Handle "All" years selection or specific year
+        let data;
+        if (this.state.selectedYear === 'All') {
+            data = this.state.allData || [];
+        } else {
+            data = this.state.getFilteredData();
+        }
+
         const container = document.getElementById('investments-container');
         const totalEl = document.getElementById('total-invested-view');
         if (!container || !totalEl) return;
