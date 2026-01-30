@@ -383,6 +383,7 @@ class UIRenderer {
         this.renderNavs();
         this.renderDashboard();
         this.renderInsights();
+        this.renderInvestments();
     }
 
     renderNavs() {
