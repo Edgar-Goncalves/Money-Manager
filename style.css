@@ -304,23 +304,27 @@ main {
 }
 
 .growth-container {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 500;
-    margin-top: 0.25rem;
+    margin-top: 0.5rem;
 }
 
 .growth-badge {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 3px;
+    padding: 4px 12px;
+    border-radius: 20px;
 }
 
 .growth-positive {
     color: var(--income-color);
+    background: rgba(16, 185, 129, 0.1);
 }
 
 .growth-negative {
     color: var(--expense-color);
+    background: rgba(239, 68, 68, 0.1);
 }
 
 /* Category Breakdown */
