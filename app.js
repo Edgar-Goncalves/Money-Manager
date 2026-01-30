@@ -423,8 +423,9 @@ class UIRenderer {
         const investmentsYearNav = document.getElementById('investments-year-nav');
 
         const years = Object.keys(this.state.yearlyData).sort((a, b) => b - a);
+        const allNavs = [document.getElementById('year-nav'), document.getElementById('insights-year-nav'), investmentsYearNav];
 
-        [document.getElementById('year-nav'), document.getElementById('insights-year-nav'), investmentsYearNav].forEach(nav => {
+        allNavs.forEach(nav => {
             if (!nav) return;
             nav.innerHTML = '';
 
@@ -975,7 +976,10 @@ class AppController {
         if (navBtn) navBtn.classList.add('active');
     }
 
-    handleYearSelect(yr) { this.state.setYear(yr); }
+    handleYearSelect(year) {
+        this.state.setYear(year);
+        this.render(); // This triggers a full re-render, which calls renderNavs
+    }
     handleMonthSelect(m) { this.state.setMonth(m); }
 }
 
