@@ -485,8 +485,8 @@ main {
     width: 18px;
     height: 18px;
     pointer-events: none;
-    opacity: 0.5;
-    color: var(--text-dim);
+    opacity: 0.6;
+    stroke: #94a3b8;
 }
 
 .search-box input {
@@ -510,10 +510,15 @@ main {
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
 }
 
-.data-grid {
+.search-box input::placeholder {
+    color: var(--text-dim);
+    opacity: 0.7;
+}
+
+#data-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
 }
 
 .data-card {
