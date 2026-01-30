@@ -430,6 +430,13 @@ class UIRenderer {
             if (!nav) return;
             nav.innerHTML = '';
 
+            // Add 'All' button to every nav
+            const allBtn = document.createElement('button');
+            allBtn.className = `year-tab ${this.state.selectedYear === 'All' ? 'active' : ''}`;
+            allBtn.innerText = 'All'; // Or "All Time"
+            allBtn.onclick = () => window.app.handleYearSelect('All');
+            nav.appendChild(allBtn);
+
             years.forEach(yr => {
                 const btn = document.createElement('button');
                 btn.className = `year-tab ${this.state.selectedYear === yr ? 'active' : ''}`;
