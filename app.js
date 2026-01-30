@@ -199,6 +199,10 @@ class StateManager {
             // Skip header or non-date rows
             if (!year || isNaN(year)) return;
 
+            // Skip explicit header row if it slipped through validation
+            const cat = (row[1] || '').toLowerCase().trim();
+            if (cat === 'categoria' || cat === 'category') return;
+
             if (!this.yearlyData[year]) this.yearlyData[year] = [];
             this.yearlyData[year].push(row);
         });
