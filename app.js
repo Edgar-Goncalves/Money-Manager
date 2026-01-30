@@ -125,13 +125,18 @@ class StateManager {
         if (!Array.isArray(data)) return;
 
         // Filter out header rows (e.g. rows containing 'Data', 'Date', 'Categoria', 'Category')
+        // More aggressive filter using substring matching to catch variations
         this.allData = data.filter(row => {
             if (!row || row.length < 4) return false;
-            const dateStr = (row[0] || '').toString().toLowerCase().trim();
-            const catStr = (row[1] || '').toString().toLowerCase().trim();
 
-            // Skip if it looks like a header
-            if (dateStr === 'data' || dateStr === 'date' || catStr === 'categoria' || catStr === 'category') return false;
+            const col0 = (row[0] || '').toString().toLowerCase().trim();
+            const col1 = (row[1] || '').toString().toLowerCase().trim();
+            const col2 = (row[2] || '').toString().toLowerCase().trim();
+
+            // Header detection: check if common header words appear in the first few columns
+            const headerTerms = ['data', 'date', 'categoria', 'category', 'sub-categoria', 'descrição', 'valor', 'value'];
+            const isHeader = headerTerms.some(term => col0 === term || col1 === term || col2 === term);
+            if (isHeader) return false;
 
             // Also ensure it has a valid year parsed to be considered a transaction
             const { year } = Utils.parseDate(row[0]);
@@ -674,16 +679,22 @@ class UIRenderer {
 
         data.forEach(row => {
             // Parse Date
-            const parts = row[0].split(/[/\-\s]/);
+            const dateStr = (row[0] || '').toString().trim();
+            const parts = dateStr.split(/[/\-\s]/);
             let jsDate = null;
 
-            // Robust parsing logic
-            if (row[0].includes('-')) {
-                // Likely YYYY-MM-DD
-                jsDate = new Date(parts[0], (parseInt(parts[1]) || 1) - 1, parts[2]);
-            } else {
-                // Likely DD/MM/YYYY
+            // Heuristic Parsing
+            if (dateStr.includes('-')) {
+                // Try YYYY-MM-DD
+                if (parts[0].length === 4) jsDate = new Date(parts[0], (parseInt(parts[1]) || 1) - 1, parts[2]);
+                // Try DD-MM-YYYY
+                else jsDate = new Date(parts[2], (parseInt(parts[1]) || 1) - 1, parts[0]);
+            } else if (dateStr.includes('/')) {
+                // Try DD/MM/YYYY
                 jsDate = new Date(parts[2], (parseInt(parts[1]) || 1) - 1, parts[0]);
+            } else {
+                // Fallback to standard JS Date parsing
+                jsDate = new Date(dateStr);
             }
 
             if (!jsDate || isNaN(jsDate.getTime())) return;

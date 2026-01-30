@@ -339,13 +339,23 @@ main {
     /* Added to prevent overflow */
 }
 
-/* Category Breakdown */
-.category-breakdown {
+/* Category Breakdown \u0026 Insights Charts */
+.category-breakdown,
+.insights-chart {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     padding: 2rem;
     border-radius: 24px;
     margin-bottom: 2.5rem;
+    height: 450px;
+    /* Force height for Chart.js */
+    width: 100%;
+    overflow: hidden;
+}
+
+.insights-chart h3 {
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .category-breakdown h3 {
