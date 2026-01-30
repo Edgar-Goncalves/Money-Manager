@@ -335,6 +335,8 @@ main {
     margin-top: 2rem;
     height: 400px;
     width: 100%;
+    overflow: hidden;
+    /* Added to prevent overflow */
 }
 
 /* Category Breakdown */

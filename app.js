@@ -371,6 +371,7 @@ class UIRenderer {
         this.state = state;
         this.chartManager = new ChartManager('categoryChart');
         this.dashboardChartManager = new ChartManager('dashboardChart');
+        this.heatmapChartManager = new ChartManager('heatmapChart');
     }
 
     safeSetText(id, text) {
@@ -638,7 +639,135 @@ class UIRenderer {
         const values = labels.map(c => Object.values(groups[c]).reduce((a, b) => a + b, 0));
         const colors = labels.map(c => this.state.getCategoryColor(c));
         this.chartManager.update(labels, values, colors);
+
+        // Render Heatmap
+        this.renderHeatmap(data);
+
         this.renderHistory(data);
+    }
+
+    renderHeatmap(data) {
+        // Prepare 7x24 grid
+        const grid = Array(7).fill(0).map(() => Array(24).fill(0));
+        let maxVal = 0;
+
+        data.forEach(row => {
+            const dateStr = row[0];
+            const timeStr = row[0]; // Assuming date field might contain time or we parse a separate field? 
+            // Wait, standard GSheets date usually doesn't have time unless formatted. 
+            // CHECK: The User's previous logs show dates like "2024-01-01". 
+            // If there is no time data, a heatmap by hour is impossible.
+            // Let's assume the date string might be "YYYY-MM-DD HH:mm:ss" OR we only do Day of Week if time is missing.
+
+            // Let's safe check Utils.parseDate. It only returns year/month. 
+            // modifying Utils.parseDate or checking raw row[0] is needed.
+            // However, looking at standard personal finance sheets, exact time is rare.
+            // IF NO TIME DATA: We can only show Day of Week intensity.
+            // Let's check Utils.parseDate again. It splits by / or -.
+
+            // Re-evaluating strategy: If strict time is missing, we can map just Day of Week (Sun-Sat).
+            // Let's try to extract Day of Week from the date object.
+
+            const d = Utils.parseDate(row[0]);
+            if (!d.year) return;
+            const dateObj = new Date(d.year, d.month, parseInt(row[0].split(/[/-]/)[0])); // rough parse
+            // Actually, let's use a better Date parser if possible, or just standard JS Date(row[0]) if format allows.
+            // Given "YYYY-MM-DD" or "DD/MM/YYYY", let's try to get Day of Week.
+
+            // Helper to parse day of week
+            const parts = row[0].includes('/') ? row[0].split('/') : row[0].split('-');
+            let jsDate;
+            if (parts[0].length === 4) jsDate = new Date(parts[0], parts[1] - 1, parts[2]); // YYYY-MM-DD
+            else jsDate = new Date(parts[2], parts[1] - 1, parts[0]); // DD-MM-YYYY
+
+            if (!jsDate || isNaN(jsDate.getTime())) return;
+
+            const dayOfWeek = jsDate.getDay(); // 0=Sun, 6=Sat
+            // Arbitrarily assigning to "12pm" (hour 12) if no time exists, 
+            // BUT if the user HAS time in the string (e.g. "2024-01-01 14:30"), we capture it.
+
+            let hour = 12; // Default to noon if no time
+            if (row[0].includes(':')) {
+                const timeParts = row[0].split(' ')[1];
+                if (timeParts) hour = parseInt(timeParts.split(':')[0]);
+            }
+
+            const val = Utils.parseValue(row[3]);
+            // Only count expenses
+            const cat = (row[1] || '').toLowerCase();
+            if (cat !== 'depositos' && cat !== 'depósitos' && cat !== 'investimentos') {
+                grid[dayOfWeek][hour] += val;
+                if (grid[dayOfWeek][hour] > maxVal) maxVal = grid[dayOfWeek][hour];
+            }
+        });
+
+        const bubbles = [];
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        for (let d = 0; d < 7; d++) {
+            for (let h = 0; h < 24; h++) {
+                if (grid[d][h] > 0) {
+                    bubbles.push({
+                        x: h, // Hour
+                        y: d, // Day
+                        r: Math.min(Math.max((grid[d][h] / maxVal) * 20, 3), 20), // Scale radius 3-20px
+                        v: grid[d][h] // Raw value for tooltip
+                    });
+                }
+            }
+        }
+
+        const ctx = document.getElementById('heatmapChart');
+        if (this.heatmapInstance) this.heatmapInstance.destroy();
+
+        this.heatmapInstance = new Chart(ctx, {
+            type: 'bubble',
+            data: {
+                datasets: [{
+                    label: 'Spending Intensity',
+                    data: bubbles,
+                    backgroundColor: 'rgba(244, 63, 94, 0.6)', // Rose/Red
+                    borderColor: 'rgba(244, 63, 94, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => {
+                                const day = days[c.raw.y];
+                                const time = `${c.raw.x}:00`;
+                                return `${day} @ ${time}: ${Utils.formatCurrency(c.raw.v)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'category',
+                        labels: days,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        type: 'linear',
+                        min: -1,
+                        max: 24,
+                        position: 'bottom',
+                        grid: { display: false },
+                        ticks: {
+                            stepSize: 2,
+                            callback: (v) => `${v}:00`,
+                            color: '#94a3b8'
+                        }
+                    }
+                }
+            }
+        });
     }
 
     renderInvestments() {
