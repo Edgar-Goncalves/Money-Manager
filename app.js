@@ -454,8 +454,9 @@ class UIRenderer {
 
             // Filter global current year data for this month independently of dashboard totals
             data.forEach(row => {
-                const date = Utils.parseDate(row[0]);
-                if (date && (date.getMonth() + 1) === m) {
+                const dateObj = Utils.parseDate(row[0]);
+                // parseDate returns { year, month: 0-11 } or { year: null, month: -1 }
+                if (dateObj && dateObj.month !== -1 && (dateObj.month + 1) === m) {
                     const val = Utils.parseValue(row[3]);
                     const cat = (row[1] || '').toLowerCase();
 
