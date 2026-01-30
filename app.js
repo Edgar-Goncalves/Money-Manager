@@ -123,7 +123,21 @@ class StateManager {
 
     setData(data) {
         if (!Array.isArray(data)) return;
-        this.allData = data;
+
+        // Filter out header rows (e.g. rows containing 'Data', 'Date', 'Categoria', 'Category')
+        this.allData = data.filter(row => {
+            if (!row || row.length < 4) return false;
+            const dateStr = (row[0] || '').toString().toLowerCase().trim();
+            const catStr = (row[1] || '').toString().toLowerCase().trim();
+
+            // Skip if it looks like a header
+            if (dateStr === 'data' || dateStr === 'date' || catStr === 'categoria' || catStr === 'category') return false;
+
+            // Also ensure it has a valid year parsed to be considered a transaction
+            const { year } = Utils.parseDate(row[0]);
+            return year && !isNaN(year);
+        });
+
         this.processYearlyData();
         const years = Object.keys(this.yearlyData).sort((a, b) => b - a);
 
@@ -198,10 +212,6 @@ class StateManager {
 
             // Skip header or non-date rows
             if (!year || isNaN(year)) return;
-
-            // Skip explicit header row if it slipped through validation
-            const cat = (row[1] || '').toLowerCase().trim();
-            if (cat === 'categoria' || cat === 'category') return;
 
             if (!this.yearlyData[year]) this.yearlyData[year] = [];
             this.yearlyData[year].push(row);
