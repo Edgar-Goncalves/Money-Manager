@@ -225,13 +225,15 @@ class ChartManager {
                         color: '#fff',
                         font: { family: 'Outfit', weight: 'bold', size: 10 },
                         formatter: (val) => Utils.formatCurrency(val).split(',')[0],
-                        offset: 2
+                        offset: 4,
+                        clip: false
                     },
                     tooltip: { callbacks: { label: (ctx) => Utils.formatCurrency(ctx.parsed.y) } }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
+                        grace: '15%',
                         grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
                         ticks: { color: '#94a3b8', font: { family: 'Outfit', size: 10 } }
                     },
