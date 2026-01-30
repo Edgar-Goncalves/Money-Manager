@@ -400,6 +400,7 @@ class AppController {
     }
 
     init() {
+        this.state.subscribe(() => this.renderer.render());
         const url = localStorage.getItem(Config.STORAGE_KEY);
         if (!url) this.showView('setup');
         else {
@@ -409,7 +410,6 @@ class AppController {
             this.refresh();
         }
         this.bindEvents();
-        this.state.subscribe(() => this.renderer.render());
     }
 
     bindEvents() {
@@ -434,12 +434,14 @@ class AppController {
 
     async refresh() {
         const btn = document.getElementById('refresh-btn');
+        const updateLbl = document.getElementById('last-updated');
         btn.classList.add('spinning');
         const data = await this.api.fetchData();
         btn.classList.remove('spinning');
         if (data) {
             localStorage.setItem(Config.CACHE_KEY, JSON.stringify(data));
             this.state.setData(data);
+            if (updateLbl) updateLbl.innerText = `Last updated: ${new Date().toLocaleTimeString()}`;
         }
     }
 
@@ -461,4 +463,5 @@ class AppController {
 }
 
 const app = new AppController();
+window.app = app; // Make global for console/debug
 app.init();
