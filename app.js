@@ -258,6 +258,32 @@ class StateManager {
         if (this.selectedMonth === 'All') return data;
         return data.filter(row => Utils.parseDate(row[0]).month === this.selectedMonth);
     }
+
+    getHourlyRate() {
+        const data = this.getCurrentYearData();
+        if (!data || data.length === 0) return 0;
+
+        const income = data.reduce((acc, row) => {
+            const cat = (row[1] || '').toLowerCase();
+            return (cat === 'depositos' || cat === 'depósitos') ? acc + Utils.parseValue(row[3]) : acc;
+        }, 0);
+
+        if (income === 0) return 0;
+
+        let months = 12;
+        const currentYear = new Date().getFullYear().toString();
+
+        if (this.selectedYear === 'All') {
+            const uniqueYears = [...new Set(this.allData.map(r => Utils.parseDate(r[0]).year))].filter(y => y && !isNaN(y));
+            months = Math.max(1, uniqueYears.length * 12);
+        } else if (this.selectedYear === currentYear) {
+            months = Math.max(1, new Date().getMonth() + 1);
+        }
+
+        // 44 hours/week * 52 weeks / 12 months = 190.66 hours/month
+        const monthlyHours = (44 * 52) / 12;
+        return income / (monthlyHours * months);
+    }
 }
 
 // --- 5. CHART MANAGER ---
@@ -618,12 +644,7 @@ class UIRenderer {
         grid.innerHTML = '';
 
         // Calculate hourly rate for work time display
-        const currentYearData = this.state.getCurrentYearData();
-        const yearlyIncome = currentYearData.reduce((acc, row) => {
-            const cat = (row[1] || '').toLowerCase();
-            return (cat === 'depositos' || cat === 'depósitos') ? acc + Utils.parseValue(row[3]) : acc;
-        }, 0);
-        const hourlyRate = yearlyIncome / (44 * 52);
+        const hourlyRate = this.state.getHourlyRate();
 
         const groups = {}, biggest = {};
         data.forEach(row => {
@@ -872,13 +893,7 @@ class UIRenderer {
         container.innerHTML = data.length ? '' : '<div class="loader">No transactions matching filters.</div>';
 
         // Calculate Work Hours logic
-        const currentYearData = this.state.getCurrentYearData();
-        const yearlyIncome = currentYearData.reduce((acc, row) => {
-            const cat = (row[1] || '').toLowerCase();
-            return (cat === 'depositos' || cat === 'depósitos') ? acc + Utils.parseValue(row[3]) : acc;
-        }, 0);
-        // 44 hours/week * 52 weeks = 2288 hours/year
-        const hourlyRate = yearlyIncome / (44 * 52);
+        const hourlyRate = this.state.getHourlyRate();
 
         data.forEach((row, i) => {
             if (!row || row.length < 4) return;
