@@ -699,56 +699,51 @@ class UIRenderer {
     }
 
     renderHeatmap(data) {
-        // New Requirement: Heatmap for Days of the Month (X: 1-31) vs Month (Y: Jan-Dec)
         // Grid: 12 months x 31 days
         const grid = Array(12).fill(0).map(() => Array(31).fill(0));
         let maxVal = 0;
 
         data.forEach(row => {
-            // Parse Date
             const dateStr = (row[0] || '').toString().trim();
-            const parts = dateStr.split(/[/\-\s]/);
-            let jsDate = null;
+            const { year, month: mIdx } = Utils.parseDate(dateStr);
 
-            // Heuristic Parsing
+            // Ensure month is valid (0-11)
+            if (mIdx < 0 || mIdx > 11) return;
+
+            // Extract Day specifically (Utils.parseDate doesn't return day)
+            const parts = dateStr.split(/[/\-\s]/);
+            let day = -1;
             if (dateStr.includes('-')) {
-                // Try YYYY-MM-DD
-                if (parts[0].length === 4) jsDate = new Date(parts[0], (parseInt(parts[1]) || 1) - 1, parts[2]);
-                // Try DD-MM-YYYY
-                else jsDate = new Date(parts[2], (parseInt(parts[1]) || 1) - 1, parts[0]);
+                day = parts[0].length === 4 ? parseInt(parts[2]) : parseInt(parts[0]);
             } else if (dateStr.includes('/')) {
-                // Try DD/MM/YYYY
-                jsDate = new Date(parts[2], (parseInt(parts[1]) || 1) - 1, parts[0]);
+                day = parseInt(parts[0]);
             } else {
-                // Fallback to standard JS Date parsing
-                jsDate = new Date(dateStr);
+                const d = new Date(dateStr);
+                if (!isNaN(d.getTime())) day = d.getDate();
             }
 
-            if (!jsDate || isNaN(jsDate.getTime())) return;
-
-            const month = jsDate.getMonth(); // 0-11
-            const day = jsDate.getDate() - 1; // 0-30 (Internal index)
+            if (day < 1 || day > 31) return;
 
             const val = Utils.parseValue(row[3]);
             const cat = (row[1] || '').toLowerCase();
 
-            // Count standard expenses only
+            // Only expenses
             if (cat !== 'depositos' && cat !== 'depósitos' && cat !== 'investimentos') {
-                grid[month][day] += val;
-                if (grid[month][day] > maxVal) maxVal = grid[month][day];
+                grid[mIdx][day - 1] += val;
+                if (grid[mIdx][day - 1] > maxVal) maxVal = grid[mIdx][day - 1];
             }
         });
 
         const bubbles = [];
-        const monthNames = Object.values(Config.MONTHS).map(m => m.substring(0, 3)); // Jan, Feb...
+        const monthNames = Object.values(Config.MONTHS).map(m => m.substring(0, 3));
 
         for (let m = 0; m < 12; m++) {
             for (let d = 0; d < 31; d++) {
                 if (grid[m][d] > 0) {
                     bubbles.push({
-                        x: d + 1, // Day 1-31
-                        y: m,     // Month Index
-                        r: Math.min(Math.max((grid[m][d] / maxVal) * 15, 2), 15), // Radius 2-15px
+                        x: d + 1,
+                        y: m,
+                        r: Math.min(Math.max((grid[m][d] / (maxVal || 1)) * 20, 4), 20),
                         v: grid[m][d]
                     });
                 }
@@ -777,8 +772,8 @@ class UIRenderer {
                     tooltip: {
                         callbacks: {
                             label: (c) => {
-                                const mName = monthNames[c.raw.y];
-                                const day = c.raw.x;
+                                const mName = monthNames[Math.round(c.raw.y)];
+                                const day = Math.round(c.raw.x);
                                 return `${mName} ${day}: ${Utils.formatCurrency(c.raw.v)}`;
                             }
                         }
@@ -786,10 +781,16 @@ class UIRenderer {
                 },
                 scales: {
                     y: {
-                        type: 'category',
-                        labels: monthNames,
+                        type: 'linear',
+                        min: -0.5,
+                        max: 11.5,
+                        reverse: true, // Jan at the top
                         grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#94a3b8' }
+                        ticks: {
+                            stepSize: 1,
+                            color: '#94a3b8',
+                            callback: (v) => monthNames[v] || ''
+                        }
                     },
                     x: {
                         type: 'linear',
@@ -800,7 +801,7 @@ class UIRenderer {
                         ticks: {
                             stepSize: 1,
                             color: '#94a3b8',
-                            callback: (v) => v % 2 === 0 ? v : '' // Show even days to reduce clutter
+                            callback: (v) => (v > 0 && v <= 31 && v % 2 === 0) ? v : ''
                         }
                     }
                 }
