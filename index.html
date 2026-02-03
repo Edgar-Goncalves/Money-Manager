@@ -102,7 +102,7 @@
 
                 <div class="chart-container insights-chart">
                     <h3>Spending Heatmap</h3>
-                    <div style="flex: 1; min-height: 0; position: relative;">
+                    <div style="flex: 1; min-height: 0; position: relative; width: 100%;">
                         <canvas id="heatmapChart"></canvas>
                     </div>
                 </div>
@@ -153,10 +153,25 @@
                     </div>
                 </div>
 
-                <h3 style="margin: 2rem 0 1rem; color: var(--text-dim); font-size: 0.9rem; text-transform: uppercase;">
-                    Investment Transactions</h3>
-                <div id="investments-container" class="data-grid">
-                    <!-- Investment cards injected here -->
+                <div class="history-toggle-container">
+                    <button id="toggle-investments-btn" class="nav-btn">📦 Show Investments</button>
+                </div>
+
+                <div id="investments-history-section" class="history-section hidden">
+                    <div class="search-box-container">
+                        <div class="search-box">
+                            <svg class="search-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            <input type="text" id="investment-search" placeholder="Search investments...">
+                        </div>
+                    </div>
+                    <div id="investments-container" class="insights-grid">
+                        <!-- Investment cards injected here -->
+                    </div>
                 </div>
             </section>
         </main>

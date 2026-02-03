@@ -106,6 +106,7 @@ class StateManager {
         this.selectedYear = null;
         this.selectedMonth = 'All';
         this.showHistory = false;
+        this.showInvestmentsHistory = false;
         this.colorMap = {};
         this.paletteIndex = 0;
         this.listeners = [];
@@ -236,6 +237,11 @@ class StateManager {
 
     toggleHistory() {
         this.showHistory = !this.showHistory;
+        this.notify();
+    }
+
+    toggleInvestmentsHistory() {
+        this.showInvestmentsHistory = !this.showInvestmentsHistory;
         this.notify();
     }
 
@@ -434,7 +440,9 @@ class UIRenderer {
         this.renderNavs();
         this.renderDashboard();
         this.renderInsights();
-        this.renderInvestments();
+        const data = this.state.getFilteredData();
+        this.renderHistory(data);
+        this.renderInvestments(data);
     }
 
     renderNavs() {
@@ -464,7 +472,7 @@ class UIRenderer {
             } else if (viewName === 'investments') {
                 navInvestments?.classList.add('active');
                 investmentsView?.classList.remove('hidden');
-                this.renderInvestments();
+                this.renderInvestments(this.state.getFilteredData());
             }
         };
 
@@ -735,7 +743,7 @@ class UIRenderer {
         });
 
         const bubbles = [];
-        const monthNames = Object.values(Config.MONTHS).map(m => m.substring(0, 3));
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
         for (let m = 0; m < 12; m++) {
             for (let d = 0; d < 31; d++) {
@@ -759,8 +767,8 @@ class UIRenderer {
                 datasets: [{
                     label: 'Daily Spending',
                     data: bubbles,
-                    backgroundColor: 'rgba(244, 63, 94, 0.6)',
-                    borderColor: 'rgba(244, 63, 94, 1)',
+                    backgroundColor: 'rgba(244, 63, 94, 0.5)',
+                    borderColor: 'rgba(244, 63, 94, 0.8)',
                     borderWidth: 1
                 }]
             },
@@ -769,6 +777,7 @@ class UIRenderer {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
+                    datalabels: { display: false },
                     tooltip: {
                         callbacks: {
                             label: (c) => {
@@ -784,11 +793,13 @@ class UIRenderer {
                         type: 'linear',
                         min: -0.5,
                         max: 11.5,
-                        reverse: true, // Jan at the top
+                        reverse: true, // Jan top
                         grid: { color: 'rgba(255,255,255,0.05)' },
                         ticks: {
                             stepSize: 1,
+                            precision: 0,
                             color: '#94a3b8',
+                            font: { size: 11 },
                             callback: (v) => monthNames[v] || ''
                         }
                     },
@@ -796,12 +807,15 @@ class UIRenderer {
                         type: 'linear',
                         min: 0,
                         max: 32,
-                        title: { display: true, text: 'Day of Month', color: '#64748b' },
+                        title: { display: true, text: 'Day of Month', color: '#64748b', font: { size: 10 } },
                         grid: { display: false },
                         ticks: {
-                            stepSize: 1,
+                            stepSize: 2,
                             color: '#94a3b8',
-                            callback: (v) => (v > 0 && v <= 31 && v % 2 === 0) ? v : ''
+                            maxRotation: 0,
+                            autoSkip: true,
+                            font: { size: 10 },
+                            callback: (v) => (v > 0 && v <= 31) ? v : ''
                         }
                     }
                 }
@@ -809,37 +823,43 @@ class UIRenderer {
         });
     }
 
-    renderInvestments() {
+    renderInvestments(data) {
+        data = data || this.state.getFilteredData();
         // Standard data retrieval (respects global selectedYear)
-        const data = this.state.getFilteredData();
-
-        const container = document.getElementById('investments-container');
         const totalEl = document.getElementById('total-invested-view');
-        if (!container || !totalEl) return;
+        const container = document.getElementById('investments-container');
+        const btn = document.getElementById('toggle-investments-btn');
+        const section = document.getElementById('investments-history-section');
+        if (!totalEl || !container || !btn || !section) return;
 
-        container.innerHTML = '';
+        // Visibility Toggle
+        if (!this.state.showInvestmentsHistory) {
+            btn.innerText = "📦 Show Investments";
+            section.classList.add('hidden');
+        } else {
+            btn.innerText = "📁 Hide Investments";
+            section.classList.remove('hidden');
+        }
+
         let totalInvested = 0;
         const investmentRows = [];
 
-        data.forEach(row => {
+        this.state.getCurrentYearData().forEach(row => {
             const cat = (row[1] || '').toLowerCase();
             if (cat === 'investimentos') {
-                const val = Utils.parseValue(row[3]);
-                totalInvested += val;
+                totalInvested += Utils.parseValue(row[3]);
                 investmentRows.push(row);
             }
         });
 
         this.safeSetText('total-invested-view', Utils.formatCurrency(totalInvested));
 
-        // Sort by date descending
+        // Sorting
         investmentRows.sort((a, b) => {
             const da = Utils.parseDate(a[0]);
             const db = Utils.parseDate(b[0]);
-            // Compare years first
             if (da.year !== db.year) return (db.year || 0) - (da.year || 0);
-            return (db.month - da.month); // Rough sort by month if years equal (since we only parsed month index)
-            // Ideally date parsing should be better for strict sorting but this fits current Utils
+            return (db.month - da.month);
         });
 
         if (investmentRows.length === 0) {
@@ -847,14 +867,18 @@ class UIRenderer {
             return;
         }
 
-        investmentRows.forEach(row => {
-            const date = row[0];
+        // Filtering based on provided data (which might already be filtered by search)
+        container.innerHTML = '';
+        data.forEach(row => {
+            const catStr = (row[1] || '').toLowerCase();
+            if (catStr !== 'investimentos') return;
+
+            const dateOnly = (row[0] || '').toString().split(' ')[0].split('T')[0];
             const cat = row[1];
             const sub = row[2];
             const val = Utils.parseValue(row[3]);
             const desc = row[4] || '';
 
-            // Reuse transaction card style
             const card = document.createElement('div');
             card.className = 'data-card';
             card.innerHTML = `
@@ -871,13 +895,14 @@ class UIRenderer {
                      </div>
                  </div>
                  ${desc ? `<p class="transaction-desc">${desc}</p>` : ''}
-                 <span class="transaction-date">${date}</span>
+                 <span class="transaction-date">${dateOnly}</span>
              `;
             container.appendChild(card);
         });
     }
 
     renderHistory(data) {
+        data = data || this.state.getFilteredData();
         const btn = document.getElementById('toggle-history-btn');
         const section = document.getElementById('history-section');
         const container = document.getElementById('data-container');
@@ -991,12 +1016,24 @@ class AppController {
         const toggleBtn = document.getElementById('toggle-history-btn');
         if (toggleBtn) toggleBtn.onclick = () => this.state.toggleHistory();
 
+        const invToggleBtn = document.getElementById('toggle-investments-btn');
+        if (invToggleBtn) invToggleBtn.onclick = () => this.state.toggleInvestmentsHistory();
+
         const searchInput = document.getElementById('sheet-search');
         if (searchInput) {
             searchInput.oninput = (e) => {
                 const q = e.target.value.toLowerCase();
                 const filtered = this.state.getFilteredData().filter(r => r && r.some(c => c && c.toString().toLowerCase().includes(q)));
                 this.renderer.renderHistory(filtered);
+            };
+        }
+
+        const invSearchInput = document.getElementById('investment-search');
+        if (invSearchInput) {
+            invSearchInput.oninput = (e) => {
+                const q = e.target.value.toLowerCase();
+                const filtered = this.state.getFilteredData().filter(r => r && r.some(c => c && c.toString().toLowerCase().includes(q)));
+                this.renderer.renderInvestments(filtered);
             };
         }
     }
