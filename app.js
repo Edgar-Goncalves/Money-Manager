@@ -801,6 +801,36 @@ class UIRenderer {
         if (this.dashboardChartManager) {
             this.dashboardChartManager.updateDashboard(curKeys, incomeTrend, expenseTrend, investmentTrend);
         }
+
+        // --- DASHBOARD PROFIT DISPLAY (ALL view only) ---
+        const profitEl = document.getElementById('dashboard-investment-profit');
+        if (profitEl) {
+            if (this.state.selectedYear === 'All') {
+                // Market Value calculation (Latest assets)
+                let totalETF = 0, totalStocks = 0, totalPPR = 0, totalCrypto = 0;
+                const investHistory = this.state.investHistory;
+                if (investHistory && investHistory.length > 1) {
+                    const latest = investHistory[investHistory.length - 1];
+                    totalETF = Utils.parseValue(latest[1]);
+                    totalStocks = Utils.parseValue(latest[2]);
+                    totalPPR = Utils.parseValue(latest[3]);
+                    totalCrypto = Utils.parseValue(latest[4]);
+                }
+                const marketValue = totalETF + totalStocks + totalPPR + totalCrypto;
+
+                // totalInvestments contains the cost from budgetData (when year is All)
+                const profit = marketValue - totalInvestments;
+                const profitPct = totalInvestments > 0 ? (profit / totalInvestments) * 100 : 0;
+
+                const arrow = profit >= 0 ? '↗' : '↘';
+                const sign = profit >= 0 ? '+' : '';
+                profitEl.innerText = `${arrow} ${sign}${Utils.formatCurrency(profit)} (${profitPct.toFixed(1)}%)`;
+                profitEl.style.color = profit >= 0 ? '#10b981' : '#ef4444';
+                profitEl.classList.remove('hidden');
+            } else {
+                profitEl.classList.add('hidden');
+            }
+        }
     }
 
     renderGrowth(curInc, curExp, curInv) {
@@ -1126,12 +1156,13 @@ class UIRenderer {
         // Update summary cards for AB, Revolut, Dinheiro
         let totalAB = 0, totalRevolut = 0, totalDinheiro = 0;
 
-        // Arrays for chart data
+        // Arrays for chart data and latest totals
         const labels = [];
         const etfData = [];
         const stocksData = [];
         const pprData = [];
         const cryptoData = [];
+        let totalETF = 0, totalStocks = 0, totalPPR = 0, totalCrypto = 0;
 
         if (investHistory && Array.isArray(investHistory)) {
             // Filter out header row
@@ -1201,6 +1232,10 @@ class UIRenderer {
                 cryptoData.push(crypto);
 
                 // Update totals for summary cards (use latest values)
+                totalETF = etf;
+                totalStocks = stocks;
+                totalPPR = ppr;
+                totalCrypto = crypto;
                 totalDinheiro = dinheiro;
                 totalRevolut = revolut;
                 totalAB = ab;
@@ -1240,16 +1275,30 @@ class UIRenderer {
             }
         });
 
-        // Update summary card values
-        this.safeSetText('total-investments-all', Utils.formatCurrency(totalInvestedFromBudget));
+        // Update Summary Card (Cost for the SELECTED view)
+        this.safeSetText('total-investments-primary', Utils.formatCurrency(totalInvestedFromBudget));
 
-        // Update Summary Card (Cost)
-        this.safeSetText('total-investments-all', Utils.formatCurrency(totalInvestedFromBudget));
+        // Calculate Portfolio Value (Assets only to prevent double counting with cash)
+        const marketValue = totalETF + totalStocks + totalPPR + totalCrypto;
+        const currentPortfolioValue = marketValue > 0 ? marketValue : totalInvestedFromBudget;
 
-        // Update Projections & Goal (Market Value)
-        const currentPortfolioValue = (totalAB + totalRevolut + totalDinheiro) > 0
-            ? (totalAB + totalRevolut + totalDinheiro)
-            : totalInvestedFromBudget;
+        // Calculate Profit ONLY based on All-Time data for the "All" view
+        const isAllView = this.state.selectedYear === 'All';
+        const profitEl = document.getElementById('investment-profit-sub');
+
+        if (isAllView && profitEl) {
+            // In "All" view, totalInvestedFromBudget correctly represents all-time cost
+            const profit = currentPortfolioValue - totalInvestedFromBudget;
+            const profitPct = totalInvestedFromBudget > 0 ? (profit / totalInvestedFromBudget) * 100 : 0;
+
+            const arrow = profit >= 0 ? '↗' : '↘';
+            const sign = profit >= 0 ? '+' : '';
+            profitEl.innerText = `${arrow} ${sign}${Utils.formatCurrency(profit)} (${profitPct.toFixed(1)}%)`;
+            profitEl.style.color = profit >= 0 ? '#10b981' : '#ef4444';
+            profitEl.classList.remove('hidden');
+        } else if (profitEl) {
+            profitEl.classList.add('hidden');
+        }
 
         this.updateInvestmentProjections(currentPortfolioValue);
         this.updateAnnualGoalProgress(this.state.investHistory, currentPortfolioValue);
@@ -1508,7 +1557,6 @@ class AppController {
 
     handleYearSelect(year) {
         this.state.setYear(year);
-        this.render(); // This triggers a full re-render, which calls renderNavs
     }
     handleMonthSelect(m) { this.state.setMonth(m); }
 }
