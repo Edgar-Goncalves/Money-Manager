@@ -570,6 +570,23 @@ class UIRenderer {
         if (el) el.innerText = text;
     }
 
+    updateInvestmentProjections(currentTotal) {
+        const annualRate = 0.07;
+        const monthlyRate = annualRate / 12;
+        const monthlyContribution = 450;
+
+        const calculateFV = (years) => {
+            const months = years * 12;
+            const futureValue = currentTotal * Math.pow(1 + monthlyRate, months) +
+                monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+            return futureValue;
+        };
+
+        this.safeSetText('proj-1y', Utils.formatCurrency(calculateFV(1)));
+        this.safeSetText('proj-5y', Utils.formatCurrency(calculateFV(5)));
+        this.safeSetText('proj-10y', Utils.formatCurrency(calculateFV(10)));
+    }
+
     render() {
         this.renderNavs();
         this.renderDashboard();
@@ -1153,6 +1170,13 @@ class UIRenderer {
 
         // Update summary card values
         this.safeSetText('total-investments-all', Utils.formatCurrency(totalInvestedFromBudget));
+
+        // Update Projections (Use actual account totals if available, otherwise fallback to budget transfers)
+        const currentPortfolioValue = (totalAB + totalRevolut + totalDinheiro) > 0
+            ? (totalAB + totalRevolut + totalDinheiro)
+            : totalInvestedFromBudget;
+
+        this.updateInvestmentProjections(currentPortfolioValue);
         this.safeSetText('total-ab', Utils.formatCurrency(totalAB));
         this.safeSetText('total-revolut', Utils.formatCurrency(totalRevolut));
         this.safeSetText('total-dinheiro', Utils.formatCurrency(totalDinheiro));

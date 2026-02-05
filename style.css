@@ -408,6 +408,28 @@ main {
     width: 100%;
 }
 
+/* Projection Cards */
+.projection-1y {
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.05), rgba(255, 255, 255, 0.02)) !important;
+    border: 1px solid rgba(255, 215, 0, 0.15) !important;
+}
+
+.projection-5y {
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.08), rgba(255, 255, 255, 0.03)) !important;
+    border: 1px solid rgba(255, 215, 0, 0.2) !important;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.05);
+}
+
+.projection-10y {
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.12), rgba(255, 255, 255, 0.04)) !important;
+    border: 1px solid rgba(255, 215, 0, 0.3) !important;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.08);
+}
+
+.projection-10y h2 {
+    font-size: clamp(1.6rem, 3.5vw, 2.2rem) !important;
+}
+
 /* Insights Charts (Canvas Containers) */
 .insights-chart {
     background: var(--glass-bg);
