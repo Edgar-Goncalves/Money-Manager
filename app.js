@@ -87,10 +87,30 @@ class ApiService {
             console.log("Fetching data from:", this.url);
             const resp = await fetch(this.url);
             const data = await resp.json();
-            if (data.status === 'success') return data.data;
-            // Fallback for direct arrays
-            if (Array.isArray(data)) return data;
-            throw new Error('Unexpected data format');
+
+            // Compatibility: support both consolidated object and direct array
+            const result = {
+                budget: null,
+                investHistory: null
+            };
+
+            // New unified format
+            if (data.budget && data.investHistory) {
+                result.budget = data.budget;
+                result.investHistory = data.investHistory;
+            }
+            // Fallback to old format
+            else if (data.status === 'success') {
+                result.budget = data.data;
+            }
+            else if (Array.isArray(data)) {
+                result.budget = data;
+            }
+            else {
+                throw new Error('Unexpected data format');
+            }
+
+            return result;
         } catch (e) {
             console.error('Fetch failed:', e);
             return null;
@@ -102,11 +122,12 @@ class ApiService {
 class StateManager {
     constructor() {
         this.allData = null;
+        this.investHistory = null; // Investment balance history from DataInvest
         this.yearlyData = {};
         this.selectedYear = null;
         this.selectedMonth = 'All';
         this.showHistory = false;
-        this.showInvestmentsHistory = false;
+        this.showInvestHistory = false;
         this.colorMap = {};
         this.paletteIndex = 0;
         this.listeners = [];
@@ -122,7 +143,19 @@ class StateManager {
         });
     }
 
-    setData(data) {
+    setData(responseData) {
+        // Handle both old format (direct array) and new format (object with budget and investHistory)
+        let data = null;
+
+        if (responseData && responseData.budget) {
+            // New unified format
+            data = responseData.budget;
+            this.investHistory = responseData.investHistory || null;
+        } else if (Array.isArray(responseData)) {
+            // Old format - direct array
+            data = responseData;
+        }
+
         if (!Array.isArray(data)) return;
 
         // Filter out header rows (e.g. rows containing 'Data', 'Date', 'Categoria', 'Category')
@@ -240,8 +273,8 @@ class StateManager {
         this.notify();
     }
 
-    toggleInvestmentsHistory() {
-        this.showInvestmentsHistory = !this.showInvestmentsHistory;
+    toggleInvestHistory() {
+        this.showInvestHistory = !this.showInvestHistory;
         this.notify();
     }
 
@@ -303,7 +336,15 @@ class ChartManager {
     }
 
     updateDashboard(labels, incomeData, expenseData, investmentData) {
-        if (this.instance) this.instance.destroy();
+        if (this.instance) {
+            this.instance.data.labels = labels;
+            this.instance.data.datasets[0].data = incomeData;
+            this.instance.data.datasets[1].data = expenseData;
+            this.instance.data.datasets[2].data = investmentData;
+            this.instance.update();
+            return;
+        }
+
         const ctx = document.getElementById(this.canvasId);
         if (!ctx) return;
 
@@ -420,6 +461,98 @@ class ChartManager {
             }
         });
     }
+
+    updateInvestmentChart(labels, etfData, stocksData, pprData, cryptoData) {
+        const ctx = document.getElementById(this.canvasId);
+        if (!ctx) return;
+
+        if (this.instance) {
+            this.instance.data.labels = labels;
+            this.instance.data.datasets[0].data = etfData;
+            this.instance.data.datasets[1].data = stocksData;
+            this.instance.data.datasets[2].data = pprData;
+            this.instance.data.datasets[3].data = cryptoData;
+            this.instance.update();
+            return;
+        }
+
+        this.instance = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'ETF',
+                        data: etfData,
+                        backgroundColor: '#10b981',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Stocks',
+                        data: stocksData,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'PPR',
+                        data: pprData,
+                        backgroundColor: '#ef4444',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Crypto',
+                        data: cryptoData,
+                        backgroundColor: '#fbbf24',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#94a3b8',
+                            font: { family: 'Outfit', size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => ' ' + c.dataset.label + ': ' + Utils.formatCurrency(c.raw)
+                        },
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 10
+                    },
+                    datalabels: { display: false }
+                },
+                scales: {
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { family: 'Outfit', size: 10 },
+                            callback: (val) => Utils.formatCurrency(val).split(',')[0]
+                        }
+                    },
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { family: 'Outfit', size: 10 },
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: false
+                        }
+                    }
+                }
+            }
+        });
+    }
 }
 
 // --- 6. UI RENDERER ---
@@ -429,6 +562,7 @@ class UIRenderer {
         this.chartManager = new ChartManager('categoryChart');
         this.dashboardChartManager = new ChartManager('dashboardChart');
         this.heatmapChartManager = new ChartManager('heatmapChart');
+        this.investmentChartManager = new ChartManager('investmentChart');
     }
 
     safeSetText(id, text) {
@@ -440,9 +574,7 @@ class UIRenderer {
         this.renderNavs();
         this.renderDashboard();
         this.renderInsights();
-        const data = this.state.getFilteredData();
-        this.renderHistory(data);
-        this.renderInvestments(data);
+        this.renderInvestments();
     }
 
     renderNavs() {
@@ -472,7 +604,7 @@ class UIRenderer {
             } else if (viewName === 'investments') {
                 navInvestments?.classList.add('active');
                 investmentsView?.classList.remove('hidden');
-                this.renderInvestments(this.state.getFilteredData());
+                this.renderInvestments();
             }
         };
 
@@ -583,11 +715,14 @@ class UIRenderer {
     }
 
     renderGrowth(curInc, curExp, curInv) {
+        // Helper to clear with placeholder to maintain height
+        const clearWithPlaceholder = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<span class="growth-badge" style="visibility:hidden; opacity:0">N/A</span>';
+        };
+
         if (!this.state.selectedYear || this.state.selectedYear === 'All') {
-            ['growth-income', 'growth-expenses', 'growth-investments'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = '';
-            });
+            ['growth-income', 'growth-expenses', 'growth-investments'].forEach(id => clearWithPlaceholder(id));
             return;
         }
         const prevYear = (parseInt(this.state.selectedYear) - 1).toString();
@@ -596,8 +731,12 @@ class UIRenderer {
         const setBadge = (id, cur, prev, rev = false) => {
             const el = document.getElementById(id);
             if (!el) return;
-            el.innerHTML = '';
-            if (!prev || isNaN(prev)) return;
+
+            if (!prev || isNaN(prev)) {
+                clearWithPlaceholder(id);
+                return;
+            }
+
             const diff = ((cur - prev) / prev) * 100;
             const isGood = rev ? diff <= 0 : diff >= 0;
             el.innerHTML = `<span class="growth-badge ${isGood ? 'growth-positive' : 'growth-negative'}">
@@ -618,30 +757,55 @@ class UIRenderer {
             setBadge('growth-expenses', curExp, pExp, true);
             setBadge('growth-investments', curInv, pInv);
         } else {
-            ['growth-income', 'growth-expenses', 'growth-investments'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = '';
-            });
+            ['growth-income', 'growth-expenses', 'growth-investments'].forEach(id => clearWithPlaceholder(id));
         }
     }
 
     renderBars(catMap, totalExp) {
         const container = document.getElementById('category-bars');
         if (!container) return;
-        container.innerHTML = '';
-        Object.entries(catMap).sort((a, b) => b[1] - a[1]).forEach(([name, val]) => {
+
+        // Convert to array and sort
+        const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+
+        // Sync children count
+        const currentChildren = Array.from(container.children);
+
+        // Remove excess
+        while (currentChildren.length > sortedCats.length) {
+            container.removeChild(currentChildren.pop());
+        }
+
+        // Update or Create
+        sortedCats.forEach(([name, val], i) => {
             const perc = totalExp > 0 ? (val / totalExp * 100) : 0;
-            const item = document.createElement('div');
-            item.className = 'bar-item';
-            item.innerHTML = `
-                <div class="bar-info">
-                    <span class="bar-label">${Utils.getCategoryEmoji(name)} ${name}</span>
-                    <span class="bar-value">${Utils.formatCurrency(val)} (${perc.toFixed(1)}%)</span>
-                </div>
-                <div class="bar-bg">
-                    <div class="bar-fill" style="width:${perc}%; background:${this.state.getCategoryColor(name)}"></div>
-                </div>`;
-            container.appendChild(item);
+            let item = currentChildren[i];
+
+            if (!item) {
+                item = document.createElement('div');
+                item.className = 'bar-item';
+                item.innerHTML = `
+                    <div class="bar-info">
+                        <span class="bar-label"></span>
+                        <span class="bar-value"></span>
+                    </div>
+                    <div class="bar-bg">
+                        <div class="bar-fill"></div>
+                    </div>`;
+                container.appendChild(item);
+            }
+
+            // Update content safely
+            const label = item.querySelector('.bar-label');
+            const value = item.querySelector('.bar-value');
+            const fill = item.querySelector('.bar-fill');
+
+            if (label) label.innerText = `${Utils.getCategoryEmoji(name)} ${name}`;
+            if (value) value.innerText = `${Utils.formatCurrency(val)} (${perc.toFixed(1)}%)`;
+            if (fill) {
+                fill.style.width = `${perc}%`;
+                fill.style.backgroundColor = this.state.getCategoryColor(name);
+            }
         });
     }
 
@@ -743,7 +907,7 @@ class UIRenderer {
         });
 
         const bubbles = [];
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthNames = Object.values(Config.MONTHS).map(m => m.substring(0, 3));
 
         for (let m = 0; m < 12; m++) {
             for (let d = 0; d < 31; d++) {
@@ -767,8 +931,8 @@ class UIRenderer {
                 datasets: [{
                     label: 'Daily Spending',
                     data: bubbles,
-                    backgroundColor: 'rgba(244, 63, 94, 0.5)',
-                    borderColor: 'rgba(244, 63, 94, 0.8)',
+                    backgroundColor: 'rgba(244, 63, 94, 0.6)',
+                    borderColor: 'rgba(244, 63, 94, 1)',
                     borderWidth: 1
                 }]
             },
@@ -777,7 +941,6 @@ class UIRenderer {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    datalabels: { display: false },
                     tooltip: {
                         callbacks: {
                             label: (c) => {
@@ -793,13 +956,11 @@ class UIRenderer {
                         type: 'linear',
                         min: -0.5,
                         max: 11.5,
-                        reverse: true, // Jan top
+                        reverse: true, // Jan at the top
                         grid: { color: 'rgba(255,255,255,0.05)' },
                         ticks: {
                             stepSize: 1,
-                            precision: 0,
                             color: '#94a3b8',
-                            font: { size: 11 },
                             callback: (v) => monthNames[v] || ''
                         }
                     },
@@ -807,15 +968,12 @@ class UIRenderer {
                         type: 'linear',
                         min: 0,
                         max: 32,
-                        title: { display: true, text: 'Day of Month', color: '#64748b', font: { size: 10 } },
+                        title: { display: true, text: 'Day of Month', color: '#64748b' },
                         grid: { display: false },
                         ticks: {
-                            stepSize: 2,
+                            stepSize: 1,
                             color: '#94a3b8',
-                            maxRotation: 0,
-                            autoSkip: true,
-                            font: { size: 10 },
-                            callback: (v) => (v > 0 && v <= 31) ? v : ''
+                            callback: (v) => (v > 0 && v <= 31 && v % 2 === 0) ? v : ''
                         }
                     }
                 }
@@ -823,86 +981,205 @@ class UIRenderer {
         });
     }
 
-    renderInvestments(data) {
-        data = data || this.state.getFilteredData();
-        // Standard data retrieval (respects global selectedYear)
-        const totalEl = document.getElementById('total-invested-view');
-        const container = document.getElementById('investments-container');
-        const btn = document.getElementById('toggle-investments-btn');
-        const section = document.getElementById('investments-history-section');
-        if (!totalEl || !container || !btn || !section) return;
+    renderInvestments() {
+        // Get investment history data from DataInvest
+        const investHistory = this.state.investHistory;
 
-        // Visibility Toggle
-        if (!this.state.showInvestmentsHistory) {
-            btn.innerText = "📦 Show Investments";
-            section.classList.add('hidden');
-        } else {
-            btn.innerText = "📁 Hide Investments";
-            section.classList.remove('hidden');
+        // Update summary cards for AB, Revolut, Dinheiro
+        let totalAB = 0, totalRevolut = 0, totalDinheiro = 0;
+
+        // Arrays for chart data
+        const labels = [];
+        const etfData = [];
+        const stocksData = [];
+        const pprData = [];
+        const cryptoData = [];
+
+        if (investHistory && Array.isArray(investHistory)) {
+            // Filter out header row
+            const dataRows = investHistory.filter((row, idx) => {
+                if (idx === 0) return false; // Skip header
+                const dateStr = (row[0] || '').toString().toLowerCase();
+                return !dateStr.includes('date') && !dateStr.includes('data');
+            });
+
+            // Process each row
+            dataRows.forEach(row => {
+                // Row format: [Date, ETF, Stocks, PPR, Crypto, Dinheiro, Revolut, AB]
+                const dateStr = row[0];
+                const etf = Utils.parseValue(row[1]);
+                const stocks = Utils.parseValue(row[2]);
+                const ppr = Utils.parseValue(row[3]);
+                const crypto = Utils.parseValue(row[4]);
+                const dinheiro = Utils.parseValue(row[5]);
+                const revolut = Utils.parseValue(row[6]);
+                const ab = Utils.parseValue(row[7]);
+
+                // Format date as "Month Year"
+                let formattedDate = dateStr;
+                try {
+                    const dateString = dateStr.toString().trim();
+                    let month = -1;
+                    let year = '';
+
+                    // Try parsing different date formats
+                    if (dateString.includes('/')) {
+                        // Format: DD/MM/YYYY or MM/DD/YYYY
+                        const parts = dateString.split('/');
+                        if (parts.length >= 3) {
+                            // Assume format is DD/MM/YYYY (European)
+                            month = parseInt(parts[1]) - 1; // 0-indexed
+                            year = parts[2];
+                        }
+                    } else if (dateString.includes('-')) {
+                        const parts = dateString.split('-');
+                        if (parts.length >= 3) {
+                            // Check if first part looks like a year (4 digits)
+                            if (parts[0].length === 4) {
+                                // Format: YYYY-MM-DD (ISO)
+                                year = parts[0];
+                                month = parseInt(parts[1]) - 1; // 0-indexed
+                            } else {
+                                // Assume Format: DD-MM-YYYY (European)
+                                month = parseInt(parts[1]) - 1; // 0-indexed
+                                year = parts[2].substring(0, 4); // Take first 4 chars of year part to ignore potential time
+                            }
+                        }
+                    }
+
+                    // If we successfully parsed month and year, format it
+                    if (month >= 0 && month <= 11 && year) {
+                        const monthName = Config.MONTHS[month + 1]; // Config.MONTHS is 1-indexed
+                        formattedDate = `${monthName} ${year}`;
+                    }
+                } catch (e) {
+                    console.error('Error parsing date:', dateStr, e);
+                }
+
+                labels.push(formattedDate);
+                etfData.push(etf);
+                stocksData.push(stocks);
+                pprData.push(ppr);
+                cryptoData.push(crypto);
+
+                // Update totals for summary cards (use latest values)
+                totalDinheiro = dinheiro;
+                totalRevolut = revolut;
+                totalAB = ab;
+            });
         }
 
-        let totalInvested = 0;
-        const investmentRows = [];
+        // Render investment chart
+        if (labels.length > 0) {
+            this.investmentChartManager.updateInvestmentChart(labels, etfData, stocksData, pprData, cryptoData);
+        }
 
-        this.state.getCurrentYearData().forEach(row => {
+        // Initialize search listener if not already done
+        const searchInput = document.getElementById('investment-search');
+        if (searchInput && !searchInput.hasAttribute('data-listener')) {
+            searchInput.setAttribute('data-listener', 'true');
+            searchInput.addEventListener('input', () => this.renderInvestments());
+        }
+
+        // Render investment transactions from budget data AND calculate total
+        const budgetData = this.state.getFilteredData();
+        const container = document.getElementById('investments-container');
+        const toggleBtn = document.getElementById('toggle-investments-history-btn');
+        const historySection = document.getElementById('investments-history-section');
+
+        if (!container) return;
+
+        // 1. Calculate Grand Total (always) & Prepare Data
+        const allInvestmentRows = [];
+        let totalInvestedFromBudget = 0;
+
+        budgetData.forEach(row => {
             const cat = (row[1] || '').toLowerCase();
             if (cat === 'investimentos') {
-                totalInvested += Utils.parseValue(row[3]);
-                investmentRows.push(row);
+                const val = Utils.parseValue(row[3]);
+                totalInvestedFromBudget += val;
+                allInvestmentRows.push(row);
             }
         });
 
-        this.safeSetText('total-invested-view', Utils.formatCurrency(totalInvested));
+        // Update summary card values
+        this.safeSetText('total-investments-all', Utils.formatCurrency(totalInvestedFromBudget));
+        this.safeSetText('total-ab', Utils.formatCurrency(totalAB));
+        this.safeSetText('total-revolut', Utils.formatCurrency(totalRevolut));
+        this.safeSetText('total-dinheiro', Utils.formatCurrency(totalDinheiro));
 
-        // Sorting
-        investmentRows.sort((a, b) => {
+        // 2. Handle Display Logic (Show/Hide)
+        if (toggleBtn && historySection) {
+            if (!this.state.showInvestHistory) {
+                toggleBtn.innerText = "📦 Show Transactions";
+                historySection.classList.add('hidden');
+                return; // Stop here if hidden
+            } else {
+                toggleBtn.innerText = "📁 Hide Transactions";
+                historySection.classList.remove('hidden');
+            }
+        }
+
+        // 3. Filter & Sort for Display
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const displayRows = allInvestmentRows.filter(row => {
+            const sub = (row[2] || '').toLowerCase();
+            const desc = (row[4] || '').toLowerCase();
+            return searchTerm === '' || sub.includes(searchTerm) || desc.includes(searchTerm);
+        });
+
+        // Sort by date descending
+        displayRows.sort((a, b) => {
             const da = Utils.parseDate(a[0]);
             const db = Utils.parseDate(b[0]);
             if (da.year !== db.year) return (db.year || 0) - (da.year || 0);
             return (db.month - da.month);
         });
 
-        if (investmentRows.length === 0) {
-            container.innerHTML = '<p class="text-dim" style="grid-column: 1/-1; text-align: center;">No investments found.</p>';
+        container.innerHTML = '';
+        if (displayRows.length === 0) {
+            container.innerHTML = '<p class="text-dim" style="grid-column: 1/-1; text-align: center;">No investment transactions found.</p>';
             return;
         }
 
-        // Filtering based on provided data (which might already be filtered by search)
-        container.innerHTML = '';
-        data.forEach(row => {
-            const catStr = (row[1] || '').toLowerCase();
-            if (catStr !== 'investimentos') return;
-
-            const dateOnly = (row[0] || '').toString().split(' ')[0].split('T')[0];
+        displayRows.forEach(row => {
+            const dateRaw = row[0];
             const cat = row[1];
             const sub = row[2];
             const val = Utils.parseValue(row[3]);
             const desc = row[4] || '';
+            const dateOnly = (dateRaw || '').toString().split(' ')[0].split('T')[0];
 
             const card = document.createElement('div');
             card.className = 'data-card';
+            card.style.height = '100%';
+            card.style.display = 'flex';
+            card.style.flexDirection = 'column';
+            card.style.justifyContent = 'space-between';
+
             card.innerHTML = `
-                 <div class="transaction-header">
-                     <div class="transaction-title">
-                         <span class="transaction-emoji">${Utils.getCategoryEmoji(cat)}</span>
-                         <div class="transaction-info">
-                             <span class="transaction-category">${cat}</span>
-                             <span class="transaction-sub">${sub}</span>
-                         </div>
-                     </div>
-                     <div class="transaction-amount">
-                         <span>${Utils.formatCurrency(val)}</span>
-                     </div>
+                 <div>
+                    <div class="transaction-header">
+                        <div class="transaction-title">
+                            <span class="transaction-emoji">${Utils.getCategoryEmoji(cat)}</span>
+                            <div class="transaction-info">
+                                <span class="transaction-category">${cat}</span>
+                                <span class="transaction-sub">${sub}</span>
+                            </div>
+                        </div>
+                        <div class="transaction-amount">
+                            <span>${Utils.formatCurrency(val)}</span>
+                        </div>
+                    </div>
                  </div>
                  ${desc ? `<p class="transaction-desc">${desc}</p>` : ''}
-                 <span class="transaction-date">${dateOnly}</span>
+                 <span class="transaction-date" style="display: block; margin-top: 1rem;">${dateOnly}</span>
              `;
             container.appendChild(card);
         });
     }
 
     renderHistory(data) {
-        data = data || this.state.getFilteredData();
         const btn = document.getElementById('toggle-history-btn');
         const section = document.getElementById('history-section');
         const container = document.getElementById('data-container');
@@ -1016,8 +1293,8 @@ class AppController {
         const toggleBtn = document.getElementById('toggle-history-btn');
         if (toggleBtn) toggleBtn.onclick = () => this.state.toggleHistory();
 
-        const invToggleBtn = document.getElementById('toggle-investments-btn');
-        if (invToggleBtn) invToggleBtn.onclick = () => this.state.toggleInvestmentsHistory();
+        const toggleInvestBtn = document.getElementById('toggle-investments-history-btn');
+        if (toggleInvestBtn) toggleInvestBtn.onclick = () => this.state.toggleInvestHistory();
 
         const searchInput = document.getElementById('sheet-search');
         if (searchInput) {
@@ -1025,15 +1302,6 @@ class AppController {
                 const q = e.target.value.toLowerCase();
                 const filtered = this.state.getFilteredData().filter(r => r && r.some(c => c && c.toString().toLowerCase().includes(q)));
                 this.renderer.renderHistory(filtered);
-            };
-        }
-
-        const invSearchInput = document.getElementById('investment-search');
-        if (invSearchInput) {
-            invSearchInput.oninput = (e) => {
-                const q = e.target.value.toLowerCase();
-                const filtered = this.state.getFilteredData().filter(r => r && r.some(c => c && c.toString().toLowerCase().includes(q)));
-                this.renderer.renderInvestments(filtered);
             };
         }
     }
@@ -1047,7 +1315,8 @@ class AppController {
         const data = await this.api.fetchData();
         if (btn) btn.classList.remove('spinning');
 
-        if (data && Array.isArray(data)) {
+        if (data) {
+            // Cache the entire response (budget + investHistory)
             localStorage.setItem(Config.CACHE_KEY, JSON.stringify(data));
             this.state.setData(data);
             if (updateLbl) updateLbl.innerText = `Last updated: ${new Date().toLocaleTimeString()}`;
@@ -1059,7 +1328,8 @@ class AppController {
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                if (Array.isArray(data)) this.state.setData(data);
+                // Handle both old format (array) and new format (object with budget/investHistory)
+                if (data) this.state.setData(data);
             } catch (e) { console.error("Cache corrupted:", e); }
         }
     }
