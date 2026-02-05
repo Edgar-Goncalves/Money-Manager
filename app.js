@@ -864,8 +864,8 @@ class UIRenderer {
         const colors = labels.map(c => this.state.getCategoryColor(c));
         this.chartManager.update(labels, values, colors);
 
-        // Render Heatmap
-        this.renderHeatmap(data);
+        // Render Heatmap (Always use full year data for context)
+        this.renderHeatmap(this.state.getCurrentYearData());
 
         this.renderHistory(data);
     }
@@ -907,15 +907,21 @@ class UIRenderer {
         });
 
         const bubbles = [];
-        const monthNames = Object.values(Config.MONTHS).map(m => m.substring(0, 3));
+        // Ensure explicit order 1-12
+        const monthNames = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => Config.MONTHS[m].substring(0, 3));
 
         for (let m = 0; m < 12; m++) {
             for (let d = 0; d < 31; d++) {
                 if (grid[m][d] > 0) {
+                    // Use Square Root scaling so smaller values are more visible
+                    // Max radius 28px (Large bubbles)
+                    const normalized = Math.sqrt(grid[m][d]) / Math.sqrt(maxVal || 1);
+                    const radius = Math.min(Math.max(normalized * 28, 5), 28);
+
                     bubbles.push({
                         x: d + 1,
                         y: m,
-                        r: Math.min(Math.max((grid[m][d] / (maxVal || 1)) * 20, 4), 20),
+                        r: radius,
                         v: grid[m][d]
                     });
                 }
@@ -925,22 +931,39 @@ class UIRenderer {
         const ctx = document.getElementById('heatmapChart');
         if (this.heatmapInstance) this.heatmapInstance.destroy();
 
+        // Ensure canvas fills container
+        ctx.style.width = '100%';
+        ctx.style.height = '100%';
+
         this.heatmapInstance = new Chart(ctx, {
             type: 'bubble',
             data: {
                 datasets: [{
                     label: 'Daily Spending',
                     data: bubbles,
-                    backgroundColor: 'rgba(244, 63, 94, 0.6)',
-                    borderColor: 'rgba(244, 63, 94, 1)',
-                    borderWidth: 1
+                    // Brighter color for visibility
+                    backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                    borderColor: '#fff',
+                    borderWidth: 1,
+                    hoverBackgroundColor: '#f43f5e',
+                    hoverBorderColor: '#fff',
+                    hoverRadius: 2  // Slight expansion on hover
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 20,
+                        bottom: 20,
+                        left: 10,
+                        right: 20
+                    }
+                },
                 plugins: {
                     legend: { display: false },
+                    datalabels: { display: false }, // Critical: Disable datalabels clutter
                     tooltip: {
                         callbacks: {
                             label: (c) => {
@@ -948,32 +971,50 @@ class UIRenderer {
                                 const day = Math.round(c.raw.x);
                                 return `${mName} ${day}: ${Utils.formatCurrency(c.raw.v)}`;
                             }
-                        }
+                        },
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        padding: 12,
+                        cornerRadius: 8,
+                        titleFont: { family: 'Outfit', size: 14 },
+                        bodyFont: { family: 'Inter', size: 13 },
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        displayColors: false
                     }
                 },
                 scales: {
                     y: {
                         type: 'linear',
-                        min: -0.5,
-                        max: 11.5,
+                        min: -0.8,
+                        max: 11.8,
                         reverse: true, // Jan at the top
-                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        grid: {
+                            color: 'rgba(255,255,255,0.05)',
+                            drawBorder: false,
+                            tickLength: 0
+                        },
                         ticks: {
                             stepSize: 1,
                             color: '#94a3b8',
-                            callback: (v) => monthNames[v] || ''
+                            font: { family: 'Outfit', size: 13, weight: '500' },
+                            callback: (v) => monthNames[v] || '',
+                            padding: 15
                         }
                     },
                     x: {
                         type: 'linear',
                         min: 0,
                         max: 32,
-                        title: { display: true, text: 'Day of Month', color: '#64748b' },
-                        grid: { display: false },
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
                         ticks: {
                             stepSize: 1,
                             color: '#94a3b8',
-                            callback: (v) => (v > 0 && v <= 31 && v % 2 === 0) ? v : ''
+                            font: { family: 'Inter', size: 11 },
+                            callback: (v) => (v > 0 && v <= 31 && v % 2 === 0) ? v : '', // Every 2 days
+                            padding: 10
                         }
                     }
                 }
