@@ -150,8 +150,8 @@
                 <div class="recap-section full-grid">
                     <div class="stats-grid">
                         <div class="glass-card stat-card investment">
-                            <span class="recap-label">Total Investments</span>
-                            <h2 id="total-investments-all">€0.00</h2>
+                            <span class="recap-label">Total Invested</span>
+                            <h2 id="total-investments-all" style="color: #ffd700;">€0.00</h2>
                         </div>
                         <div class="glass-card stat-card bank-ab">
                             <span class="recap-label">💼 AB</span>
@@ -175,6 +175,33 @@
 
                 <!-- Investment Projections -->
                 <div class="projections-section" style="margin-top: 2rem;">
+                    <!-- Annual Goal Progress -->
+                    <div class="glass-card goal-section" style="margin-bottom: 2rem; padding: 1.5rem;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem;">
+                            <h3 style="margin-bottom: 0; display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 1.2rem;">🎯</span> <span id="goal-year-title">Goal</span>
+                                Investment Goal
+                            </h3>
+                            <div id="goal-percentage" style="font-size: 1.2rem; font-weight: 700; color: #ffd700;">0%
+                            </div>
+                        </div>
+
+                        <div class="goal-progress-container">
+                            <div id="goal-progress-bar" class="goal-progress-bar" style="width: 0%"></div>
+                        </div>
+
+                        <div
+                            style="display: flex; justify-content: space-between; margin-top: 1rem; font-size: 0.85rem;">
+                            <div class="text-dim">Started at: <span id="goal-start-val"
+                                    style="color: white; font-weight: 500;">€0.00</span></div>
+                            <div class="text-dim">Current: <span id="goal-current-val"
+                                    style="color: #ffd700; font-weight: 600;">€0.00</span></div>
+                            <div class="text-dim">Target: <span id="goal-target-val"
+                                    style="color: white; font-weight: 500;">€0.00</span></div>
+                        </div>
+                    </div>
+
                     <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
                         <span style="font-size: 1.5rem;">🚀</span> Portfolio Predictions
                         <span

@@ -587,6 +587,78 @@ class UIRenderer {
         this.safeSetText('proj-10y', Utils.formatCurrency(calculateFV(10)));
     }
 
+    updateAnnualGoalProgress(historyData, currentTotal) {
+        if (!historyData || historyData.length === 0) return;
+
+        // Skip headers and parse dates for all rows
+        const validRows = historyData
+            .slice(1) // Skip potential header
+            .filter(row => row && row[0])
+            .map(row => ({
+                date: Utils.parseDate(row[0]),
+                // Sum of ETF, Stocks, PPR, Crypto
+                value: Utils.parseValue(row[1]) + Utils.parseValue(row[2]) +
+                    Utils.parseValue(row[3]) + Utils.parseValue(row[4]),
+                raw: row
+            }))
+            .filter(r => r.date.year !== null)
+            .sort((a, b) => {
+                if (a.date.year !== b.date.year) return a.date.year - b.date.year;
+                return a.date.month - b.date.month;
+            });
+
+        if (validRows.length === 0) return;
+
+        // Use selected year from state, or current year if 'All'
+        const selectedYearStr = this.state.selectedYear;
+        const targetYear = selectedYearStr === 'All' ? new Date().getFullYear() : parseInt(selectedYearStr);
+
+        this.safeSetText('goal-year-title', targetYear);
+
+        let yearStartValue = 0;
+        let yearCurrentValue = 0;
+
+        // 1. Find entries for the targeted year
+        const entriesCurrent = validRows.filter(r => parseInt(r.date.year) === targetYear);
+
+        if (entriesCurrent.length > 0) {
+            // "Current" for a year view is the LATEST entry of that year
+            yearCurrentValue = entriesCurrent[entriesCurrent.length - 1].value;
+
+            // "Start" for a year view is the FIRST entry of that year (or baseline from previous)
+            const entriesBefore = validRows.filter(r => parseInt(r.date.year) < targetYear);
+            if (entriesBefore.length > 0) {
+                yearStartValue = entriesBefore[entriesBefore.length - 1].value;
+            } else {
+                yearStartValue = entriesCurrent[0].value;
+            }
+        } else {
+            // Fallback: No data for this year yet
+            const entriesBefore = validRows.filter(r => parseInt(r.date.year) < targetYear);
+            if (entriesBefore.length > 0) {
+                yearStartValue = entriesBefore[entriesBefore.length - 1].value;
+                yearCurrentValue = yearStartValue; // Nothing added yet
+            } else {
+                yearStartValue = validRows[0].value;
+                yearCurrentValue = validRows[0].value;
+            }
+        }
+
+        // Calculate Goal: Start + 7% growth on start + €450*12
+        const annualGrowth = 0.07;
+        const targetValue = (yearStartValue * (1 + annualGrowth)) + (450 * 12);
+
+        const progress = targetValue > 0 ? Math.min(((yearCurrentValue / targetValue) * 100), 100) : 0;
+
+        this.safeSetText('goal-percentage', `${progress.toFixed(1)}%`);
+        this.safeSetText('goal-start-val', Utils.formatCurrency(yearStartValue));
+        this.safeSetText('goal-current-val', Utils.formatCurrency(yearCurrentValue));
+        this.safeSetText('goal-target-val', Utils.formatCurrency(targetValue));
+
+        const bar = document.getElementById('goal-progress-bar');
+        if (bar) bar.style.width = `${progress}%`;
+    }
+
     render() {
         this.renderNavs();
         this.renderDashboard();
@@ -1171,12 +1243,16 @@ class UIRenderer {
         // Update summary card values
         this.safeSetText('total-investments-all', Utils.formatCurrency(totalInvestedFromBudget));
 
-        // Update Projections (Use actual account totals if available, otherwise fallback to budget transfers)
+        // Update Summary Card (Cost)
+        this.safeSetText('total-investments-all', Utils.formatCurrency(totalInvestedFromBudget));
+
+        // Update Projections & Goal (Market Value)
         const currentPortfolioValue = (totalAB + totalRevolut + totalDinheiro) > 0
             ? (totalAB + totalRevolut + totalDinheiro)
             : totalInvestedFromBudget;
 
         this.updateInvestmentProjections(currentPortfolioValue);
+        this.updateAnnualGoalProgress(this.state.investHistory, currentPortfolioValue);
         this.safeSetText('total-ab', Utils.formatCurrency(totalAB));
         this.safeSetText('total-revolut', Utils.formatCurrency(totalRevolut));
         this.safeSetText('total-dinheiro', Utils.formatCurrency(totalDinheiro));

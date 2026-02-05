@@ -430,6 +430,73 @@ main {
     font-size: clamp(1.6rem, 3.5vw, 2.2rem) !important;
 }
 
+/* Annual Goal Progress */
+.goal-progress-container {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.goal-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #b8860b, #ffd700);
+    border-radius: 6px;
+    transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+.goal-section {
+    border: 1px solid rgba(255, 215, 0, 0.15) !important;
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.03), rgba(255, 255, 255, 0.01)) !important;
+}
+
+/* Profit Tracking */
+.profit-card.profit {
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.02)) !important;
+}
+
+.profit-card.loss {
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.05), rgba(255, 255, 255, 0.02)) !important;
+}
+
+.profit-card.profit h2,
+.profit-card.profit span {
+    color: #10b981 !important;
+}
+
+.profit-card.loss h2,
+.profit-card.loss span {
+    color: #ef4444 !important;
+}
+
+/* Profit Badge Integration */
+.growth-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.badge-profit {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.badge-loss {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444 !important;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 /* Insights Charts (Canvas Containers) */
 .insights-chart {
     background: var(--glass-bg);
