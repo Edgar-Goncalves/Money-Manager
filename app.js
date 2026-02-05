@@ -910,13 +910,21 @@ class UIRenderer {
         // Ensure explicit order 1-12
         const monthNames = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => Config.MONTHS[m].substring(0, 3));
 
+        // Dynamic bubble sizing based on container width
+        const canvas = document.getElementById('heatmapChart');
+        const container = canvas?.parentElement;
+        const containerWidth = container?.offsetWidth || 800;
+
+        // Calculate max bubble size: each day needs space across 31 columns
+        // Leave 80% of column width for bubble to ensure spacing
+        const maxBubbleRadius = Math.min(Math.max((containerWidth / 31) * 0.4, 3), 22);
+
         for (let m = 0; m < 12; m++) {
             for (let d = 0; d < 31; d++) {
                 if (grid[m][d] > 0) {
                     // Use Square Root scaling so smaller values are more visible
-                    // Max radius 28px (Large bubbles)
                     const normalized = Math.sqrt(grid[m][d]) / Math.sqrt(maxVal || 1);
-                    const radius = Math.min(Math.max(normalized * 28, 5), 28);
+                    const radius = Math.min(Math.max(normalized * maxBubbleRadius, 3), maxBubbleRadius);
 
                     bubbles.push({
                         x: d + 1,
@@ -1345,6 +1353,19 @@ class AppController {
                 this.renderer.renderHistory(filtered);
             };
         }
+
+        // Resize listener for responsive heatmap
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                // Re-render insights (which includes heatmap) on resize
+                const insightsView = document.getElementById('insights-view');
+                if (insightsView && !insightsView.classList.contains('hidden')) {
+                    this.renderer.renderInsights();
+                }
+            }, 250); // Debounce 250ms
+        });
     }
 
     async refresh() {
