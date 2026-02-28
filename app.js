@@ -46,18 +46,30 @@ class Utils {
 
     static parseDate(dateStr) {
         if (!dateStr) return { year: null, month: -1 };
-        const str = dateStr.toString().trim();
-        const parts = str.includes('/') ? str.split('/') : str.split('-');
+        const str = dateStr.toString().trim().split(/[T\s]/)[0]; // Handle timestamps
+        const parts = str.split(/[/\-\.]/); // Support /, -, .
         if (parts.length < 3) return { year: null, month: -1 };
 
         let year = null, month = -1;
+
         // Detect Year (Check 4-digit parts)
         if (parts[0].length === 4) {
             year = parts[0];
             month = parseInt(parts[1]) - 1;
-        } else if (parts[2].length === 4) {
-            year = parts[2];
+        } else if (parts[2].substr(0, 4).length === 4) {
+            year = parts[2].substr(0, 4);
             month = parseInt(parts[1]) - 1;
+        }
+
+        // Intelligently handle MM/DD vs DD/MM if first or second part is > 12
+        if (month < 0 || month > 11) {
+            const p0 = parseInt(parts[0]);
+            const p1 = parseInt(parts[1]);
+            if (p0 > 12 && p1 <= 12) { // Clearly DD/MM/YYYY
+                month = p1 - 1;
+            } else if (p1 > 12 && p0 <= 12) { // Clearly MM/DD/YYYY
+                month = p0 - 1;
+            }
         }
 
         // Final sanity check for month
@@ -1186,43 +1198,10 @@ class UIRenderer {
 
                 // Format date as "Month Year"
                 let formattedDate = dateStr;
-                try {
-                    const dateString = dateStr.toString().trim();
-                    let month = -1;
-                    let year = '';
-
-                    // Try parsing different date formats
-                    if (dateString.includes('/')) {
-                        // Format: DD/MM/YYYY or MM/DD/YYYY
-                        const parts = dateString.split('/');
-                        if (parts.length >= 3) {
-                            // Assume format is DD/MM/YYYY (European)
-                            month = parseInt(parts[1]) - 1; // 0-indexed
-                            year = parts[2];
-                        }
-                    } else if (dateString.includes('-')) {
-                        const parts = dateString.split('-');
-                        if (parts.length >= 3) {
-                            // Check if first part looks like a year (4 digits)
-                            if (parts[0].length === 4) {
-                                // Format: YYYY-MM-DD (ISO)
-                                year = parts[0];
-                                month = parseInt(parts[1]) - 1; // 0-indexed
-                            } else {
-                                // Assume Format: DD-MM-YYYY (European)
-                                month = parseInt(parts[1]) - 1; // 0-indexed
-                                year = parts[2].substring(0, 4); // Take first 4 chars of year part to ignore potential time
-                            }
-                        }
-                    }
-
-                    // If we successfully parsed month and year, format it
-                    if (month >= 0 && month <= 11 && year) {
-                        const monthName = Config.MONTHS[month + 1]; // Config.MONTHS is 1-indexed
-                        formattedDate = `${monthName} ${year}`;
-                    }
-                } catch (e) {
-                    console.error('Error parsing date:', dateStr, e);
+                const parsedDate = Utils.parseDate(dateStr);
+                if (parsedDate.year && parsedDate.month !== -1) {
+                    const monthName = Config.MONTHS[parsedDate.month + 1];
+                    formattedDate = `${monthName} ${parsedDate.year}`;
                 }
 
                 labels.push(formattedDate);
